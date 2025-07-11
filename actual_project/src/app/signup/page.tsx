@@ -1,153 +1,193 @@
 "use client";
-
 import { useState } from "react";
-import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { AnimatedEye } from "@/components/ui/animated-eye";
-import Link from "next/link";
-import { useRouter } from "next/navigation";
+import FileUpload from "@/components/FileUpload";
 
-export default function SignUpPage() {
-  const [email, setEmail] = useState("");
-  const [password, setPassword] = useState("");
-  const [confirmPassword, setConfirmPassword] = useState("");
-  const [showPassword, setShowPassword] = useState(false);
-  const [showConfirmPassword, setShowConfirmPassword] = useState(false);
-  const router = useRouter();
+export default function Index() {
+  const [formData, setFormData] = useState({
+    name: "",
+    dateOfBirth: "",
+    email: "",
+    password: "",
+    confirmPassword: "",
+    profilePicture: null as File | null,
+  });
 
-  const handleSignUp = (e: React.FormEvent) => {
-    e.preventDefault();
-    if (password !== confirmPassword) {
-      alert("Passwords do not match!");
-      return;
+  const [errors, setErrors] = useState<Record<string, string>>({});
+
+  const handleInputChange = (field: string, value: string) => {
+    setFormData((prev) => ({ ...prev, [field]: value }));
+    // Clear error when user starts typing
+    if (errors[field]) {
+      setErrors((prev) => ({ ...prev, [field]: "" }));
     }
-    console.log("Sign up attempted with:", { email, password });
-    // TODO: Implement actual sign up logic
   };
 
-  const handleBackToLogin = () => {
-    router.push("/");
+  const handleFileChange = (file: File | null) => {
+    setFormData((prev) => ({ ...prev, profilePicture: file }));
+  };
+
+  const validateForm = () => {
+    const newErrors: Record<string, string> = {};
+
+    if (!formData.name.trim()) {
+      newErrors.name = "Name is required";
+    }
+
+    if (!formData.dateOfBirth) {
+      newErrors.dateOfBirth = "Date of birth is required";
+    }
+
+    if (!formData.email.trim()) {
+      newErrors.email = "Email is required";
+    } else if (!/\S+@\S+\.\S+/.test(formData.email)) {
+      newErrors.email = "Please enter a valid email address";
+    }
+
+    if (!formData.password) {
+      newErrors.password = "Password is required";
+    } else if (formData.password.length < 6) {
+      newErrors.password = "Password must be at least 6 characters";
+    }
+
+    if (!formData.confirmPassword) {
+      newErrors.confirmPassword = "Please confirm your password";
+    } else if (formData.password !== formData.confirmPassword) {
+      newErrors.confirmPassword = "Passwords do not match";
+    }
+
+    setErrors(newErrors);
+    return Object.keys(newErrors).length === 0;
+  };
+
+  const handleSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+
+    if (validateForm()) {
+      // Handle form submission
+      console.log("Form submitted:", formData);
+      alert("Account created successfully!");
+    }
   };
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-gray-50 to-gray-100 px-4">
-      <div className="w-full max-w-md">
+    <div className="min-h-screen bg-white flex items-center justify-center px-4 py-8">
+      <div className="w-full max-w-2xl">
         {/* Header */}
         <div className="text-center mb-12">
-          <h1 className="text-4xl font-bold text-gray-900 mb-2">
-            Create Account
+          <h1 className="text-4xl md:text-5xl lg:text-6xl font-bold text-black mb-2">
+            Ready to become an...
           </h1>
-          <p className="text-lg text-gray-600">
-            Join Event Friend today
-          </p>
+          <h2 className="text-4xl md:text-5xl lg:text-6xl font-bold text-black">
+            Event Friend!
+          </h2>
         </div>
 
         {/* Form */}
-        <form onSubmit={handleSignUp} className="space-y-6">
-          {/* Email Input */}
-          <div className="space-y-2">
-            <label
-              htmlFor="email"
-              className="block text-sm font-medium text-gray-900"
-            >
-              Email:
-            </label>
-            <Input
-              id="email"
-              type="email"
-              value={email}
-              onChange={(e) => setEmail(e.target.value)}
-              placeholder="Enter your email"
-              className="w-full h-12 text-base border-2 border-gray-900 rounded-none focus:ring-0 focus:border-gray-900 focus-visible:ring-0 focus-visible:ring-offset-0"
-              required
-            />
-          </div>
-
-          {/* Password Input */}
-          <div className="space-y-2">
-            <label
-              htmlFor="password"
-              className="block text-sm font-medium text-gray-900"
-            >
-              Password:
-            </label>
-            <div className="flex gap-0">
-              <Input
-                id="password"
-                type={showPassword ? "text" : "password"}
-                value={password}
-                onChange={(e) => setPassword(e.target.value)}
-                placeholder="Enter your password"
-                className="flex-1 h-12 text-base border-2 border-gray-900 border-r-0 rounded-none focus:ring-0 focus:border-gray-900 focus-visible:ring-0 focus-visible:ring-offset-0"
-                required
-              />
-              <AnimatedEye
-                isOpen={showPassword}
-                onClick={() => setShowPassword(!showPassword)}
+        <form onSubmit={handleSubmit} className="space-y-6">
+          {/* Name */}
+          <div>
+            <div className="border-4 border-black bg-white">
+              <input
+                type="text"
+                placeholder="Name:"
+                value={formData.name}
+                onChange={(e) => handleInputChange("name", e.target.value)}
+                className="w-full px-4 py-4 text-black font-medium placeholder-black bg-transparent focus:outline-none text-lg"
               />
             </div>
+            {errors.name && (
+              <p className="text-red-600 text-sm mt-1">{errors.name}</p>
+            )}
           </div>
 
-          {/* Confirm Password Input */}
-          <div className="space-y-2">
-            <label
-              htmlFor="confirmPassword"
-              className="block text-sm font-medium text-gray-900"
-            >
-              Confirm Password:
-            </label>
-            <div className="flex gap-0">
-              <Input
-                id="confirmPassword"
-                type={showConfirmPassword ? "text" : "password"}
-                value={confirmPassword}
-                onChange={(e) => setConfirmPassword(e.target.value)}
-                placeholder="Confirm your password"
-                className="flex-1 h-12 text-base border-2 border-gray-900 border-r-0 rounded-none focus:ring-0 focus:border-gray-900 focus-visible:ring-0 focus-visible:ring-offset-0"
-                required
-              />
-              <AnimatedEye
-                isOpen={showConfirmPassword}
-                onClick={() => setShowConfirmPassword(!showConfirmPassword)}
+          {/* Date of Birth */}
+          <div>
+            <div className="border-4 border-black bg-white flex items-center">
+              <span className="text-black font-medium text-lg px-4 py-4">
+                Date of Birth:
+              </span>
+              <input
+                type="date"
+                value={formData.dateOfBirth}
+                onChange={(e) =>
+                  handleInputChange("dateOfBirth", e.target.value)
+                }
+                className="flex-1 py-4 pr-4 text-black font-medium bg-transparent focus:outline-none text-lg"
               />
             </div>
+            {errors.dateOfBirth && (
+              <p className="text-red-600 text-sm mt-1">{errors.dateOfBirth}</p>
+            )}
           </div>
 
-          {/* Action Buttons */}
-          <div className="space-y-4 pt-6">
-            {/* Sign Up Button */}
-            <Button
+          {/* Profile Picture Upload */}
+          <div>
+            <FileUpload onFileChange={handleFileChange} />
+          </div>
+
+          {/* Email */}
+          <div>
+            <div className="border-4 border-black bg-white">
+              <input
+                type="email"
+                placeholder="Email:"
+                value={formData.email}
+                onChange={(e) => handleInputChange("email", e.target.value)}
+                className="w-full px-4 py-4 text-black font-medium placeholder-black bg-transparent focus:outline-none text-lg"
+              />
+            </div>
+            {errors.email && (
+              <p className="text-red-600 text-sm mt-1">{errors.email}</p>
+            )}
+          </div>
+
+          {/* Password */}
+          <div>
+            <div className="border-4 border-black bg-white">
+              <input
+                type="password"
+                placeholder="Password:"
+                value={formData.password}
+                onChange={(e) => handleInputChange("password", e.target.value)}
+                className="w-full px-4 py-4 text-black font-medium placeholder-black bg-transparent focus:outline-none text-lg"
+              />
+            </div>
+            {errors.password && (
+              <p className="text-red-600 text-sm mt-1">{errors.password}</p>
+            )}
+          </div>
+
+          {/* Confirm Password */}
+          <div>
+            <div className="border-4 border-black bg-white">
+              <input
+                type="password"
+                placeholder="Confirm Password:"
+                value={formData.confirmPassword}
+                onChange={(e) =>
+                  handleInputChange("confirmPassword", e.target.value)
+                }
+                className="w-full px-4 py-4 text-black font-medium placeholder-black bg-transparent focus:outline-none text-lg"
+              />
+            </div>
+            {errors.confirmPassword && (
+              <p className="text-red-600 text-sm mt-1">
+                {errors.confirmPassword}
+              </p>
+            )}
+          </div>
+
+          {/* Submit Button */}
+          <div className="flex justify-center pt-8">
+            <button
               type="submit"
-              className="w-full h-12 bg-green-500 hover:bg-green-600 text-white font-medium text-base rounded-none border-0 transition-colors"
+              className="bg-green-500 hover:bg-green-600 text-black font-bold px-12 py-4 text-xl transition-colors duration-200"
             >
               Create Account
-            </Button>
-
-            {/* Back to Login Button */}
-            <Button
-              type="button"
-              onClick={handleBackToLogin}
-              variant="outline"
-              className="w-full h-12 bg-yellow-400 hover:bg-yellow-500 text-gray-900 font-medium text-base rounded-none border-2 border-gray-900 transition-colors"
-            >
-              Back to Login
-            </Button>
+            </button>
           </div>
         </form>
-
-        {/* Additional Links */}
-        <div className="mt-8 text-center text-sm text-gray-600">
-          <p>
-            Already have an account?{" "}
-            <Link
-              href="/"
-              className="text-blue-600 hover:text-blue-800 font-medium underline"
-            >
-              Sign in
-            </Link>
-          </p>
-        </div>
       </div>
     </div>
   );
-} 
+}
