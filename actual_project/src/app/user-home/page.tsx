@@ -295,13 +295,13 @@ const EventDiscoveryPage = () => {
           {categories.map((category) => {
             const getThemeColor = (theme: string) => {
               const colors: { [key: string]: string } = {
-                Party: "bg-party",
-                Outdoors: "bg-outdoors",
-                Wellness: "bg-wellness",
-                Educational: "bg-educational",
-                Food: "bg-food",
-                Shopping: "bg-shopping",
-                Community: "bg-community",
+                Party: "bg-pink-600",
+                Outdoors: "bg-green-600",
+                Wellness: "bg-teal-500",
+                Educational: "bg-blue-600",
+                Food: "bg-yellow-500",
+                Shopping: "bg-purple-600",
+                Community: "bg-red-600",
               };
               return colors[theme] || "bg-gray-500";
             };
