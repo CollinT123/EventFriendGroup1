@@ -1,5 +1,6 @@
 "use client";
 import { useState } from "react";
+import { useRouter } from "next/navigation";
 import FileUpload from "@/components/FileUpload";
 import { createUserWithEmailAndPassword } from "firebase/auth";
 import { auth, db, storage} from "@/firebase/firebaseConfig";
@@ -13,21 +14,16 @@ export default function Index() {
     email: "",
     password: "",
     confirmPassword: "",
-    profilePicture: null as File | null,
   });
 
   const [errors, setErrors] = useState<Record<string, string>>({});
+  const router = useRouter();
 
   const handleInputChange = (field: string, value: string) => {
     setFormData((prev) => ({ ...prev, [field]: value }));
     if (errors[field]) {
       setErrors((prev) => ({ ...prev, [field]: "" }));
     }
-  };
-
-  const handleFileChange = (file: File | null) => {
-    console.log("handleFileChange called with:", file);
-    setFormData((prev) => ({ ...prev, profilePicture: file }));
   };
 
   const validateForm = () => {
@@ -52,37 +48,21 @@ export default function Index() {
 
     try {
       console.log("Starting form submission...");
-      console.log("Profile picture:", formData.profilePicture);
       
       const userCred = await createUserWithEmailAndPassword(auth, formData.email, formData.password);
       const uid = userCred.user.uid;
       console.log("User created with UID:", uid);
 
-      let profilePictureUrl = "";
-      if (formData.profilePicture) {
-        console.log("Uploading profile picture...");
-        const fileRef = ref(storage, `profilePictures/${uid}`);
-        console.log("File reference created:", fileRef);
-        
-        await uploadBytes(fileRef, formData.profilePicture);
-        console.log("File uploaded successfully");
-        
-        profilePictureUrl = await getDownloadURL(fileRef);
-        console.log("Download URL obtained:", profilePictureUrl);
-      } else {
-        console.log("No profile picture selected");
-      }
-
       await setDoc(doc(db, "users", uid), {
         name: formData.name,
         dateOfBirth: formData.dateOfBirth,
         email: formData.email,
-        profilePicture: profilePictureUrl,
         createdAt: new Date().toISOString()
       });
       console.log("User document created in Firestore");
 
       alert("Account created successfully!");
+      router.push("/"); // Redirect to sign in (home) page
     } catch (err: any) {
       console.error("Error during signup:", err);
       
@@ -134,7 +114,6 @@ export default function Index() {
             </div>
 
             {/* Profile Picture */}
-            <div><FileUpload onFileChange={handleFileChange} /></div>
 
             {/* Email */}
             <div>

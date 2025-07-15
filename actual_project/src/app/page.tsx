@@ -7,6 +7,8 @@ import { AnimatedEye } from "@/components/ui/animated-eye";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { cn } from "@/lib/utils";
+import { signInWithEmailAndPassword } from "firebase/auth";
+import { auth } from "@/firebase/firebaseConfig";
 
 export default function HomePage() {
   const router = useRouter();
@@ -14,13 +16,14 @@ export default function HomePage() {
   const [password, setPassword] = useState("");
   const [showPassword, setShowPassword] = useState(false);
 
-  const handleLogin = (e: React.FormEvent) => {
+  const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
-    console.log("Login attempted with:", { email, password });
-    // TODO: Implement actual authentication logic
-
-    // Navigate to user home page 
-    router.push("/user-home")
+    try {
+      await signInWithEmailAndPassword(auth, email, password);
+      router.push("/user-home");
+    } catch (err) {
+      alert("Incorrect login information");
+    }
   };
 
   const handleSignUp = () => {
