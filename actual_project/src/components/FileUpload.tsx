@@ -25,8 +25,10 @@ export default function FileUpload({
 
   const handleFileSelect = (event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
+    console.log("File selected:", file);
 
     if (!file) {
+      console.log("No file selected");
       setSelectedFile(null);
       setError("");
       setPreviewUrl("");
@@ -37,11 +39,24 @@ export default function FileUpload({
     // Validate file type
     const allowedTypes = ["application/pdf", "image/jpeg", "image/jpg"];
     const fileExtension = file.name.toLowerCase().split(".").pop();
+    console.log("File type:", file.type, "Extension:", fileExtension);
+
+    // Check file size (5MB limit)
+    const maxSize = 5 * 1024 * 1024; // 5MB
+    if (file.size > maxSize) {
+      console.log("File too large");
+      setError("File size must be less than 5MB");
+      setSelectedFile(null);
+      setPreviewUrl("");
+      onFileChange?.(null);
+      return;
+    }
 
     if (
       !allowedTypes.includes(file.type) &&
       !["pdf", "jpeg", "jpg"].includes(fileExtension || "")
     ) {
+      console.log("Invalid file type");
       setError("Please select a PDF or JPEG file");
       setSelectedFile(null);
       setPreviewUrl("");
@@ -49,6 +64,7 @@ export default function FileUpload({
       return;
     }
 
+    console.log("File validation passed, calling onFileChange");
     setError("");
     setSelectedFile(file);
     onFileChange?.(file);
