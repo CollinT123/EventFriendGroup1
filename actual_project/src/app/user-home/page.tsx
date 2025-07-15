@@ -18,7 +18,10 @@ import {
   PopoverTrigger,
 } from "@/components/ui/popover";
 import { Facebook, Twitter, Instagram, Linkedin, X } from "lucide-react";
-import { useState } from "react";
+import { useEffect, useState } from "react";
+import { getAuth } from "firebase/auth";
+import { db } from "@/firebase/firebaseConfig";
+import { doc, getDoc } from "firebase/firestore";
 
 const EventDiscoveryPage = () => {
   const router = useRouter();
@@ -37,6 +40,9 @@ const EventDiscoveryPage = () => {
   const [clockType, setClockType] = useState<"digital" | "analog">("digital");
   const [maxPeople, setMaxPeople] = useState(5);
   const [selectedTheme, setSelectedTheme] = useState<string | null>(null);
+  const [showProfile, setShowProfile] = useState(false);
+  const [profile, setProfile] = useState<any>(null);
+  const [profileLoading, setProfileLoading] = useState(false);
 
   // Generate consistent random people counts
   const generatePeopleCounts = () => {
@@ -272,6 +278,38 @@ const EventDiscoveryPage = () => {
   ];
   const sidebarItems = ["Dashboard", "Calendar", "Post", "Chat", "Profile"];
 
+  // Fetch profile when Profile tab is clicked
+  const handleProfileClick = async () => {
+    setProfileLoading(true);
+    setShowProfile(true);
+    setProfile(null);
+    try {
+      const auth = getAuth();
+      const user = auth.currentUser;
+      if (!user) {
+        router.push("/"); // Not signed in, go to login
+        return;
+      }
+      const docRef = doc(db, "users", user.uid);
+      const docSnap = await getDoc(docRef);
+      if (docSnap.exists()) {
+        const data = docSnap.data();
+        if (!data.bio) {
+          router.push("/user-home/create-profile");
+          return;
+        }
+        setProfile(data);
+      } else {
+        router.push("/user-home/create-profile");
+        return;
+      }
+    } catch (err) {
+      router.push("/user-home/create-profile");
+      return;
+    }
+    setProfileLoading(false);
+  };
+
   return (
     <div className="min-h-screen bg-gray-100 p-4">
       <div className="max-w-7xl mx-auto">
@@ -287,31 +325,17 @@ const EventDiscoveryPage = () => {
         <div className="flex justify-center gap-4 mb-8">
           {/* All button */}
           <Button
-            className={`${selectedTheme === null ? "bg-gray-800" : "bg-gray-500"} hover:opacity-80 text-white font-medium px-6 py-2 text-sm`}
+            className={`${selectedTheme === null ? "bg-black" : "bg-gray-500"} hover:opacity-80 text-white font-medium px-6 py-2 text-sm`}
             onClick={() => setSelectedTheme(null)}
           >
             All
           </Button>
           {categories.map((category) => {
-            const getThemeColor = (theme: string) => {
-              const colors: { [key: string]: string } = {
-                Party: "bg-party",
-                Outdoors: "bg-outdoors",
-                Wellness: "bg-wellness",
-                Educational: "bg-educational",
-                Food: "bg-food",
-                Shopping: "bg-shopping",
-                Community: "bg-community",
-              };
-              return colors[theme] || "bg-gray-500";
-            };
-
             const isSelected = selectedTheme === category;
-
             return (
               <Button
                 key={category}
-                className={`${getThemeColor(category)} ${isSelected ? "ring-4 ring-white" : ""} hover:opacity-80 text-white font-medium px-6 py-2 text-sm`}
+                className={`bg-black ${isSelected ? "ring-4 ring-white" : ""} hover:opacity-80 text-white font-medium px-6 py-2 text-sm`}
                 onClick={() =>
                   setSelectedTheme(selectedTheme === category ? null : category)
                 }
@@ -326,6 +350,20 @@ const EventDiscoveryPage = () => {
         <div className="flex gap-6">
           {/* Left Sidebar */}
           <div className="flex flex-col gap-4 w-24">
+            {/* Home Button */}
+            <Button
+              className="h-16 bg-blue-900 hover:bg-blue-800 text-white font-medium text-sm"
+              onClick={() => {
+                setShowProfile(false);
+                setProfile(null);
+                setIsModalOpen(false);
+                setIsCalendarOpen(false);
+                setIsPostModalOpen(false);
+                setSelectedEvent(null);
+              }}
+            >
+              Home
+            </Button>
             {sidebarItems.map((item) => (
               <Button
                 key={item}
@@ -338,7 +376,7 @@ const EventDiscoveryPage = () => {
                   } else if (item === "Dashboard") {
                     router.push("/user-home/dashboard")
                   } else if (item === "Profile") {
-                    router.push("/user-home/create-profile");
+                    handleProfileClick();
                   }
                 }}
               >
@@ -349,86 +387,110 @@ const EventDiscoveryPage = () => {
 
           {/* Events Grid */}
           <div className="flex-1">
-            <div className="grid grid-cols-4 gap-4 mb-8">
-              {[...events, ...customEvents]
-                .filter(
-                  (event) =>
-                    selectedTheme === null || event.theme === selectedTheme,
-                )
-                .map((event, index) => (
-                  <Button
-                    key={index}
-                    className="p-0 h-auto w-full overflow-hidden border-0 shadow-md bg-white hover:bg-white rounded-lg relative group"
-                    onClick={() => {
-                      setSelectedEvent(event);
-                      setIsModalOpen(true);
-                    }}
+            {showProfile ? (
+              profileLoading ? (
+                <div>Loading profile...</div>
+              ) : profile ? (
+                <div className="flex flex-col items-center gap-4 mt-8">
+                  {profile.profileImage && (
+                    <img
+                      src={profile.profileImage}
+                      alt="Profile"
+                      className="w-32 h-32 rounded-full object-cover border-4 border-black"
+                    />
+                  )}
+                  <h2 className="text-2xl font-bold text-black">{profile.name}</h2>
+                  {profile.age && (
+                    <div className="text-lg text-gray-800 font-semibold">Age: {profile.age}</div>
+                  )}
+                  {profile.location && (
+                    <div className="text-lg text-gray-800 font-semibold">Location: {profile.location}</div>
+                  )}
+                  <p className="text-gray-700 text-center whitespace-pre-line">{profile.bio}</p>
+                  <div className="flex flex-wrap gap-2 mt-2">
+                    {profile.eventPreferences?.map((pref: string, i: number) => (
+                      <span key={i} className="bg-blue-500 text-white px-2 py-1 rounded text-sm">{pref}</span>
+                    ))}
+                  </div>
+                  <button
+                    className="mt-6 px-6 py-2 bg-green-600 hover:bg-green-700 text-white font-semibold rounded"
+                    onClick={() => router.push("/user-home/create-profile")}
                   >
-                    <div className="w-full">
-                      {/* Hover overlay */}
-                      <div className="absolute inset-0 bg-black opacity-0 group-hover:opacity-10 transition-opacity duration-200 z-10 rounded-lg" />
-                      <div className="relative h-40">
-                        <img
-                          src={event.image}
-                          alt={event.alt}
-                          className="w-full h-full object-cover"
-                        />
-                        <div className="absolute inset-0 bg-black/20" />
-                        <div className="absolute bottom-2 right-2">
-                          <span
-                            className={`${event.color} text-white px-2 py-1 text-xs font-medium rounded`}
-                          >
-                            {event.theme}
-                          </span>
+                    Edit Profile
+                  </button>
+                </div>
+              ) : null
+            ) : (
+              <div className="grid grid-cols-4 gap-4 mb-8">
+                {[...events, ...customEvents]
+                  .filter(
+                    (event) =>
+                      selectedTheme === null || event.theme === selectedTheme,
+                  )
+                  .map((event, index) => (
+                    <Button
+                      key={index}
+                      className="p-0 h-auto w-full overflow-hidden border-0 shadow-md bg-white hover:bg-white rounded-lg relative group"
+                      onClick={() => {
+                        setSelectedEvent(event);
+                        setIsModalOpen(true);
+                      }}
+                    >
+                      <div className="w-full">
+                        {/* Hover overlay */}
+                        <div className="absolute inset-0 bg-black opacity-0 group-hover:opacity-10 transition-opacity duration-200 z-10 rounded-lg" />
+                        <div className="relative h-40">
+                          <img
+                            src={event.image}
+                            alt={event.alt}
+                            className="w-full h-full object-cover"
+                          />
+                          <div className="absolute inset-0 bg-black/20" />
+                          <div className="absolute bottom-2 right-2">
+                            <span
+                              className={`${event.color} text-white px-2 py-1 text-xs font-medium rounded`}
+                            >
+                              {event.theme}
+                            </span>
+                          </div>
+                        </div>
+                        <div className="p-3 bg-white text-left">
+                          <div className="text-sm font-bold text-black leading-tight">
+                            {event.dayOfWeek}
+                          </div>
+                          <div className="text-sm font-bold text-black leading-tight">
+                            {event.date}
+                          </div>
+                          <div className="text-sm font-bold text-black leading-tight">
+                            {event.time}
+                          </div>
+                          <div className="text-sm text-gray-700 mt-1">
+                            {event.location}
+                          </div>
                         </div>
                       </div>
-                      <div className="p-3 bg-white text-left">
-                        <div className="text-sm font-bold text-black leading-tight">
-                          {event.dayOfWeek}
-                        </div>
-                        <div className="text-sm font-bold text-black leading-tight">
-                          {event.date}
-                        </div>
-                        <div className="text-sm font-bold text-black leading-tight">
-                          {event.time}
-                        </div>
-                        <div className="text-sm text-gray-700 mt-1">
-                          {event.location}
-                        </div>
-                      </div>
-                    </div>
-                  </Button>
-                ))}
-            </div>
+                    </Button>
+                  ))}
+              </div>
+            )}
 
             {/* Bottom Action Buttons */}
-            <div className="flex justify-center gap-16 mb-8">
-              <Button className="bg-red-800 hover:bg-red-900 text-white font-medium px-8 py-2">
-                Report
-              </Button>
-              <Button className="bg-white hover:bg-gray-50 text-black border border-gray-300 font-medium px-8 py-2">
-                FAQ
-              </Button>
-              <Button className="bg-black hover:bg-gray-900 text-white font-medium px-8 py-2">
-                Support
-              </Button>
-            </div>
+            {!showProfile && (
+              <div className="flex justify-center gap-16 mb-8">
+                <Button className="bg-red-800 hover:bg-red-900 text-white font-medium px-8 py-2">
+                  Report
+                </Button>
+                <Button className="bg-white hover:bg-gray-50 text-black border border-gray-300 font-medium px-8 py-2">
+                  FAQ
+                </Button>
+                <Button className="bg-black hover:bg-gray-900 text-white font-medium px-8 py-2">
+                  Support
+                </Button>
+              </div>
+            )}
 
             {/* Social Media Icons */}
-            <div className="flex justify-center gap-4">
-              <Button className="w-16 h-16 bg-blue-500 hover:bg-blue-600 rounded-lg p-0">
-                <Facebook className="w-8 h-8 text-white" />
-              </Button>
-              <Button className="w-16 h-16 bg-blue-500 hover:bg-blue-600 rounded-lg p-0">
-                <Twitter className="w-8 h-8 text-white" />
-              </Button>
-              <Button className="w-16 h-16 bg-blue-500 hover:bg-blue-600 rounded-lg p-0">
-                <Instagram className="w-8 h-8 text-white" />
-              </Button>
-              <Button className="w-16 h-16 bg-blue-500 hover:bg-blue-600 rounded-lg p-0">
-                <Linkedin className="w-8 h-8 text-white" />
-              </Button>
-            </div>
+            {/* REMOVED: Social media icon buttons (Facebook, Twitter, Instagram, Linkedin) */}
           </div>
         </div>
 

@@ -26,6 +26,8 @@ const eventPreferences = [
 export default function Page() {
   const router = useRouter();
   const [name, setName] = useState("");
+  const [location, setLocation] = useState(""); // New location state
+  const [age, setAge] = useState(""); // Age state
   const [bio, setBio] = useState("");
   const [distancePreference, setDistancePreference] = useState([0]);
   const [agePreference, setAgePreference] = useState([21]);
@@ -129,9 +131,11 @@ export default function Page() {
       }
       await setDoc(doc(db, "users", user.uid), {
         name,
+        location, // Save location
+        age, // Save age
         bio,
         profileImage: profileImageUrl,
-        eventPreferences: selectedEvents.concat(customEvents),
+        eventPreferences: selectedEvents,
         distancePreference: distancePreference[0],
         agePreference: agePreference[0],
         updatedAt: new Date().toISOString(),
@@ -207,6 +211,33 @@ export default function Page() {
                   />
                 </div>
 
+                {/* Location Input */}
+                <div>
+                  <label className="block text-black font-medium mb-2">
+                    Location:
+                  </label>
+                  <Input
+                    value={location}
+                    onChange={e => setLocation(e.target.value)}
+                    className="border-2 border-black rounded-none h-12 text-base"
+                    placeholder="Enter your location"
+                  />
+                </div>
+
+                {/* Age Input */}
+                <div>
+                  <label className="block text-black font-medium mb-2">
+                    Age:
+                  </label>
+                  <Input
+                    value={age}
+                    onChange={e => setAge(e.target.value.replace(/[^0-9]/g, ""))}
+                    className="border-2 border-black rounded-none h-12 text-base"
+                    placeholder="Enter your age"
+                    maxLength={3}
+                  />
+                </div>
+
                 {/* Bio */}
                 <div>
                   <label className="block text-black font-medium mb-2">
@@ -235,134 +266,34 @@ export default function Page() {
               </label>
               <div className="border-4 border-black p-4 bg-gray-800">
                 <div className="grid grid-cols-3 gap-3 mb-4">
-                  {eventPreferences.map((event) => (
-                    <Button
-                      key={event.id}
-                      onClick={() => toggleEventPreference(event.id)}
-                      className={`
-                        ${event.color}
-                        ${selectedEvents.includes(event.id) ? "opacity-50 line-through" : "opacity-100"}
-                        text-white font-medium border-0 rounded-none h-12 text-sm
-                        hover:opacity-75 transition-opacity
-                      `}
-                      variant="secondary"
-                    >
-                      {event.label}
-                    </Button>
-                  ))}
-                  <Button
-                    onClick={startAddingEvent}
-                    className="bg-gray-500 hover:bg-gray-600 text-white font-medium border-0 rounded-none h-12 text-sm"
-                    variant="secondary"
-                  >
-                    <Plus className="w-4 h-4 mr-1" />
-                    Other events...
-                  </Button>
-                </div>
-
-                {/* Custom Events List */}
-                {customEvents.length > 0 && (
-                  <div className="mt-4 space-y-2">
-                    <h4 className="text-white font-medium text-sm">
-                      Custom Events:
-                    </h4>
-                    {customEvents.map((event, index) => (
-                      <div
-                        key={index}
-                        className="flex items-center gap-2 bg-gray-700 p-2 rounded"
-                      >
-                        {editingEventIndex === index ? (
-                          <div className="flex items-center gap-2 flex-1">
-                            <Input
-                              value={editEventInput}
-                              onChange={(e) => setEditEventInput(e.target.value)}
-                              className="flex-1 h-8 text-sm border-gray-500"
-                              onKeyPress={(e) => {
-                                if (e.key === "Enter") {
-                                  handleEditEvent(index, editEventInput);
-                                }
-                              }}
-                            />
-                            <Button
-                              onClick={() =>
-                                handleEditEvent(index, editEventInput)
-                              }
-                              className="h-8 w-8 p-0 bg-green-600 hover:bg-green-700"
-                              size="sm"
-                            >
-                              ✓
-                            </Button>
-                            <Button
-                              onClick={() => {
-                                setEditingEventIndex(null);
-                                setEditEventInput("");
-                              }}
-                              className="h-8 w-8 p-0 bg-gray-600 hover:bg-gray-700"
-                              size="sm"
-                            >
-                              ✕
-                            </Button>
-                          </div>
-                        ) : (
-                          <>
-                            <span className="text-white text-sm flex-1">
-                              {event}
-                            </span>
-                            <Button
-                              onClick={() => {
-                                setEditingEventIndex(index);
-                                setEditEventInput(event);
-                              }}
-                              className="h-8 w-8 p-0 bg-blue-600 hover:bg-blue-700"
-                              size="sm"
-                            >
-                              <Edit2 className="w-3 h-3" />
-                            </Button>
-                            <Button
-                              onClick={() => handleDeleteCustomEvent(index)}
-                              className="h-8 w-8 p-0 bg-red-600 hover:bg-red-700"
-                              size="sm"
-                            >
-                              <X className="w-3 h-3" />
-                            </Button>
-                          </>
-                        )}
+                  {eventPreferences.map((event, idx) => (
+                    idx === eventPreferences.length - 1 && eventPreferences.length % 3 !== 0 ? (
+                      <div key={event.id} className="col-span-3 flex justify-center">
+                        <label className="flex items-center gap-2 text-white font-medium text-sm cursor-pointer">
+                          <input
+                            type="checkbox"
+                            checked={selectedEvents.includes(event.id)}
+                            onChange={() => toggleEventPreference(event.id)}
+                            className="accent-black w-4 h-4"
+                          />
+                          {event.label}
+                        </label>
                       </div>
-                    ))}
-                  </div>
-                )}
-
-                {/* Add New Event Input */}
-                {isAddingEvent && (
-                  <div className="mt-4 flex items-center gap-2">
-                    <Input
-                      value={newEventInput}
-                      onChange={(e) => setNewEventInput(e.target.value)}
-                      placeholder="What event would you like to add?"
-                      className="flex-1 h-10 border-gray-500"
-                      onKeyPress={(e) => {
-                        if (e.key === "Enter") {
-                          handleAddCustomEvent();
-                        }
-                      }}
-                    />
-                    <Button
-                      onClick={handleAddCustomEvent}
-                      className="bg-green-600 hover:bg-green-700 text-white h-10"
-                    >
-                      Add
-                    </Button>
-                    <Button
-                      onClick={() => {
-                        setIsAddingEvent(false);
-                        setNewEventInput("");
-                      }}
-                      className="bg-gray-600 hover:bg-gray-700 text-white h-10"
-                    >
-                      Cancel
-                    </Button>
-                  </div>
-                )}
+                    ) : (
+                      <div key={event.id} className="flex justify-center">
+                        <label className="flex items-center gap-2 text-white font-medium text-sm cursor-pointer">
+                          <input
+                            type="checkbox"
+                            checked={selectedEvents.includes(event.id)}
+                            onChange={() => toggleEventPreference(event.id)}
+                            className="accent-black w-4 h-4"
+                          />
+                          {event.label}
+                        </label>
+                      </div>
+                    )
+                  ))}
+                </div>
               </div>
             </div>
 
