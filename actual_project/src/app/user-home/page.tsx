@@ -337,6 +337,8 @@ const EventDiscoveryPage = () => {
                     setIsPostModalOpen(true);
                   } else if (item === "Dashboard") {
                     router.push("/user-home/dashboard")
+                  } else if (item === "Profile") {
+                    router.push("/user-home/create-profile");
                   }
                 }}
               >
