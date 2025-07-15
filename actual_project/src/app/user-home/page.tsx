@@ -2,6 +2,7 @@
 
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
+import { useRouter } from "next/navigation";
 import {
   Dialog,
   DialogContent,
@@ -19,7 +20,8 @@ import {
 import { Facebook, Twitter, Instagram, Linkedin, X } from "lucide-react";
 import { useState } from "react";
 
-const Index = () => {
+const EventDiscoveryPage = () => {
+  const router = useRouter();
   const [selectedEvent, setSelectedEvent] = useState<any>(null);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [isCalendarOpen, setIsCalendarOpen] = useState(false);
@@ -268,7 +270,7 @@ const Index = () => {
     "Shopping",
     "Community",
   ];
-  const sidebarItems = ["Calendar", "Post", "Chat", "Profile"];
+  const sidebarItems = ["Dashboard", "Calendar", "Post", "Chat", "Profile"];
 
   return (
     <div className="min-h-screen bg-gray-100 p-4">
@@ -333,6 +335,8 @@ const Index = () => {
                     setIsCalendarOpen(true);
                   } else if (item === "Post") {
                     setIsPostModalOpen(true);
+                  } else if (item === "Dashboard") {
+                    router.push("/user-home/dashboard")
                   }
                 }}
               >
@@ -702,10 +706,12 @@ const Index = () => {
                 const dayOfWeek = dayNames[selectedDate.getDay()];
                 const formattedDate = `${monthNames[selectedDate.getMonth()]} ${selectedDate.getDate()}, ${selectedDate.getFullYear()}`;
                 const timeString = `${selectedTime.hour}:${selectedTime.minute.toString().padStart(2, "0")} ${selectedTime.period}`;
+                const themeValue = formData.get("theme");
+                const themeString = typeof themeValue === "string" ? themeValue : "party"; // falls back to party 
 
                 const newEvent = {
-                  theme: formData.get("theme") as string,
-                  color: `bg-${formData.get("theme")?.toLowerCase()}`,
+                  theme: themeString,
+                  color: `bg-${themeString.toLowerCase()}`,
                   image:
                     (formData.get("imageUrl") as string) ||
                     "https://images.pexels.com/photos/2774556/pexels-photo-2774556.jpeg",
@@ -1125,4 +1131,4 @@ const Index = () => {
   );
 };
 
-export default Index;
+export default EventDiscoveryPage;
