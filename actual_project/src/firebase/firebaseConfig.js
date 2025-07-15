@@ -8,7 +8,7 @@ const firebaseConfig = {
     apiKey: "AIzaSyDC94zn7QamC6xJfCryC8OEUYRnFvBZHH8",
     authDomain: "eventfriend-2e489.firebaseapp.com",
     projectId: "eventfriend-2e489",
-    storageBucket: "eventfriend-2e489.firebasestorage.app",
+    storageBucket: "eventfriend-2e489.appspot.com",
     messagingSenderId: "53277412088",
     appId: "1:53277412088:web:4fbe8a96bf05ad295c890d",
     measurementId: "G-2B28Q3CZCW"
