@@ -19,7 +19,7 @@ import {
 import { Facebook, Twitter, Instagram, Linkedin, X } from "lucide-react";
 import { useState } from "react";
 
-const Index = () => {
+const EventDiscoveryPage = () => {
   const [selectedEvent, setSelectedEvent] = useState<any>(null);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [isCalendarOpen, setIsCalendarOpen] = useState(false);
@@ -702,10 +702,12 @@ const Index = () => {
                 const dayOfWeek = dayNames[selectedDate.getDay()];
                 const formattedDate = `${monthNames[selectedDate.getMonth()]} ${selectedDate.getDate()}, ${selectedDate.getFullYear()}`;
                 const timeString = `${selectedTime.hour}:${selectedTime.minute.toString().padStart(2, "0")} ${selectedTime.period}`;
+                const themeValue = formData.get("theme");
+                const themeString = typeof themeValue === "string" ? themeValue : "party"; // falls back to party 
 
                 const newEvent = {
-                  theme: formData.get("theme") as string,
-                  color: `bg-${formData.get("theme")?.toLowerCase()}`,
+                  theme: themeString,
+                  color: `bg-${themeString.toLowerCase()}`,
                   image:
                     (formData.get("imageUrl") as string) ||
                     "https://images.pexels.com/photos/2774556/pexels-photo-2774556.jpeg",
@@ -1125,4 +1127,4 @@ const Index = () => {
   );
 };
 
-export default Index;
+export default EventDiscoveryPage;

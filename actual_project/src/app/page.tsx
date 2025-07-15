@@ -9,15 +9,18 @@ import { useRouter } from "next/navigation";
 import { cn } from "@/lib/utils";
 
 export default function HomePage() {
+  const router = useRouter();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [showPassword, setShowPassword] = useState(false);
-  const router = useRouter();
 
   const handleLogin = (e: React.FormEvent) => {
     e.preventDefault();
     console.log("Login attempted with:", { email, password });
     // TODO: Implement actual authentication logic
+
+    // Navigate to user home page 
+    router.push("/user-home")
   };
 
   const handleSignUp = () => {

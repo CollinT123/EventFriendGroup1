@@ -1,8 +1,10 @@
 "use client";
 import { useState } from "react";
 import FileUpload from "@/components/FileUpload";
+import { useRouter } from "next/navigation";
 
 export default function Index() {
+  const router = useRouter();
   const [formData, setFormData] = useState({
     name: "",
     dateOfBirth: "",
@@ -66,6 +68,9 @@ export default function Index() {
       // Handle form submission
       console.log("Form submitted:", formData);
       alert("Account created successfully!");
+
+      // Goes back to log in page 
+      router.push("/");
     }
   };
 

@@ -7,6 +7,7 @@ import { Slider } from "@/components/ui/slider";
 import { Button } from "@/components/ui/button";
 import { Camera, Plus, Edit2, X } from "lucide-react";
 
+
 const eventPreferences = [
   { id: "party", label: "Party", color: "bg-event-party" },
   { id: "outdoors", label: "Outdoors", color: "bg-event-outdoors" },
