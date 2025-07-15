@@ -49,6 +49,7 @@ actual_project/
 │   ├── components/             # React component modules
 │   │   ├── FileUpload.tsx      # File upload component
 │   │   └── ui/                 # UI component library (buttons, forms, etc.)
+│   │       └── MiniProfileCard.tsx # Mini profile card component
 │   ├── firebase/               # Firebase configuration
 │   │   └── firebaseConfig.js
 │   ├── hooks/                  # Custom React hooks
@@ -63,12 +64,15 @@ actual_project/
 └── next.config.js              # Next.js configuration
 ```
 
-## Notes
+## Features & Notes
 
 - This project uses Next.js App Router and React Server Components where possible.
 - All Firebase operations (auth, Firestore, storage) are handled client-side using the Firebase JS SDK.
 - UI is built with reusable components and Tailwind CSS for rapid development and consistency.
+- **Event Feed:** The event feed on the user home page is currently static, using a hardcoded list of events. (Eventbrite API integration is not active due to API restrictions.)
+- **Profile Card:** The profile card (on both the user home and the profile-card page) displays the user's name, age, location, bio, event preferences, and profile picture. The style is inspired by the `MiniProfileCard` component for a clean, modern look.
+- **MiniProfileCard:** The `MiniProfileCard` component in `src/components/ui/` provides a compact, visually appealing profile summary and serves as a style reference for other profile displays.
 
 ---
 
-For more details, see the `ARCHITECTURE.txt` file in this project.
+
