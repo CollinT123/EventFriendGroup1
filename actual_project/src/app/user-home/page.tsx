@@ -2,6 +2,7 @@
 
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
+import { useRouter } from "next/navigation";
 import {
   Dialog,
   DialogContent,
@@ -20,6 +21,7 @@ import { Facebook, Twitter, Instagram, Linkedin, X } from "lucide-react";
 import { useState } from "react";
 
 const EventDiscoveryPage = () => {
+  const router = useRouter();
   const [selectedEvent, setSelectedEvent] = useState<any>(null);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [isCalendarOpen, setIsCalendarOpen] = useState(false);
@@ -268,7 +270,7 @@ const EventDiscoveryPage = () => {
     "Shopping",
     "Community",
   ];
-  const sidebarItems = ["Calendar", "Post", "Chat", "Profile"];
+  const sidebarItems = ["Dashboard", "Calendar", "Post", "Chat", "Profile"];
 
   return (
     <div className="min-h-screen bg-gray-100 p-4">
@@ -333,6 +335,8 @@ const EventDiscoveryPage = () => {
                     setIsCalendarOpen(true);
                   } else if (item === "Post") {
                     setIsPostModalOpen(true);
+                  } else if (item === "Dashboard") {
+                    router.push("/user-home/dashboard")
                   }
                 }}
               >

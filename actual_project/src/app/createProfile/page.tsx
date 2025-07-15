@@ -6,6 +6,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Slider } from "@/components/ui/slider";
 import { Button } from "@/components/ui/button";
 import { Camera, Plus, Edit2, X } from "lucide-react";
+import { useRouter } from "next/navigation";
 
 
 const eventPreferences = [
@@ -19,6 +20,7 @@ const eventPreferences = [
 ];
 
 export default function Page() {
+  const router = useRouter();
   const [name, setName] = useState("");
   const [bio, setBio] = useState("");
   const [distancePreference, setDistancePreference] = useState([0]);
