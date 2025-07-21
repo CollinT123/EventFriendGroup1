@@ -21,7 +21,7 @@ import { Facebook, Twitter, Instagram, Linkedin, X } from "lucide-react";
 import { useEffect, useState } from "react";
 import { getAuth } from "firebase/auth";
 import { db } from "@/firebase/firebaseConfig";
-import { doc, getDoc } from "firebase/firestore";
+import { doc, getDoc, updateDoc, arrayUnion } from "firebase/firestore";
 
 const EventDiscoveryPage = () => {
   const router = useRouter();
@@ -75,6 +75,7 @@ const EventDiscoveryPage = () => {
   // Event data with theme-appropriate images
   const events = [
     {
+      id: 1,
       theme: "Food",
       color: "bg-food",
       image:
@@ -91,6 +92,7 @@ const EventDiscoveryPage = () => {
       peopleCount: peopleCounts[0],
     },
     {
+      id: 2,
       theme: "Party",
       color: "bg-party",
       image:
@@ -107,6 +109,7 @@ const EventDiscoveryPage = () => {
       peopleCount: peopleCounts[1],
     },
     {
+      id: 3,
       theme: "Wellness",
       color: "bg-wellness",
       image:
@@ -123,6 +126,7 @@ const EventDiscoveryPage = () => {
       peopleCount: peopleCounts[2],
     },
     {
+      id: 4,
       theme: "Educational",
       color: "bg-educational",
       image:
@@ -139,6 +143,7 @@ const EventDiscoveryPage = () => {
       peopleCount: peopleCounts[3],
     },
     {
+      id: 5,
       theme: "Outdoors",
       color: "bg-outdoors",
       image:
@@ -155,6 +160,7 @@ const EventDiscoveryPage = () => {
       peopleCount: peopleCounts[4],
     },
     {
+      id: 6,
       theme: "Shopping",
       color: "bg-shopping",
       image:
@@ -171,6 +177,7 @@ const EventDiscoveryPage = () => {
       peopleCount: peopleCounts[5],
     },
     {
+      id: 7,
       theme: "Community",
       color: "bg-community",
       image:
@@ -187,6 +194,7 @@ const EventDiscoveryPage = () => {
       peopleCount: peopleCounts[6],
     },
     {
+      id: 8,
       theme: "Party",
       color: "bg-party",
       image:
@@ -203,6 +211,7 @@ const EventDiscoveryPage = () => {
       peopleCount: peopleCounts[7],
     },
     {
+      id: 9,
       theme: "Wellness",
       color: "bg-wellness",
       image:
@@ -219,6 +228,7 @@ const EventDiscoveryPage = () => {
       peopleCount: peopleCounts[8],
     },
     {
+      id: 10,
       theme: "Educational",
       color: "bg-educational",
       image:
@@ -235,6 +245,7 @@ const EventDiscoveryPage = () => {
       peopleCount: peopleCounts[9],
     },
     {
+      id: 11,
       theme: "Food",
       color: "bg-food",
       image: "https://images.pexels.com/photos/750952/pexels-photo-750952.jpeg",
@@ -250,6 +261,7 @@ const EventDiscoveryPage = () => {
       peopleCount: peopleCounts[10],
     },
     {
+      id: 12,
       theme: "Shopping",
       color: "bg-shopping",
       image:
@@ -586,16 +598,28 @@ const EventDiscoveryPage = () => {
                   {/* Interest Button */}
                   <Button
                     className="w-full bg-green-500 hover:bg-green-600 text-white font-semibold py-3"
-                    onClick={() => {
-                      if (
-                        !interestedEvents.find(
-                          (e) => e.name === selectedEvent.name,
-                        )
-                      ) {
+                    onClick={async () => {
+                      const auth = getAuth();
+                      const user = auth.currentUser;
+                      if (!user) {
+                        alert("You must be signed in to express interest.");
+                        return;
+                      }
+                      // Add to local interestedEvents
+                      if (!interestedEvents.find((e) => e.name === selectedEvent.name)) {
                         setInterestedEvents([
                           ...interestedEvents,
                           selectedEvent,
                         ]);
+                      }
+                      // Add user to Firestore event's peopleInterested array
+                      try {
+                        const eventRef = doc(db, "events", String(selectedEvent.id));
+                        await updateDoc(eventRef, {
+                          peopleInterested: arrayUnion(user.uid),
+                        });
+                      } catch (err) {
+                        console.error("Failed to update event in Firestore:", err);
                       }
                       setIsModalOpen(false);
                     }}
