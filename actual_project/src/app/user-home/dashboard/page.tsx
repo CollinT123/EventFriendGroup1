@@ -9,6 +9,88 @@ import { collection, getDocs, query, where, doc, getDoc, updateDoc, arrayUnion, 
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 
+// MatchCard component
+const MatchCard = ({ match, event, otherUserId }: { match: any; event: any; otherUserId: string }) => {
+  const [otherUser, setOtherUser] = useState<any>(null);
+  const [loadingUser, setLoadingUser] = useState(true);
+  const router = useRouter();
+
+  useEffect(() => {
+    const loadOtherUser = async () => {
+      try {
+        const userRef = doc(db, "users", otherUserId);
+        const userSnap = await getDoc(userRef);
+        
+        if (userSnap.exists()) {
+          setOtherUser({ id: otherUserId, ...userSnap.data() });
+        } else {
+          setOtherUser({ id: otherUserId, name: "Unknown User" });
+        }
+      } catch (err) {
+        console.error("Error loading other user:", err);
+        setOtherUser({ id: otherUserId, name: "Unknown User" });
+      } finally {
+        setLoadingUser(false);
+      }
+    };
+
+    loadOtherUser();
+  }, [otherUserId]);
+
+  // Get first name from full name
+  const getFirstName = (fullName: string) => {
+    return fullName.split(' ')[0] || fullName;
+  };
+
+  return (
+    <div className="border rounded-lg p-4 bg-white shadow">
+      <div className="flex items-center gap-3 mb-3">
+        <div className="w-12 h-12 bg-gradient-to-r from-pink-400 to-purple-500 rounded-full flex items-center justify-center">
+          <span className="text-white font-bold text-lg">💕</span>
+        </div>
+        <div className="flex-1">
+          <h3 className="font-semibold text-lg">
+            {event ? event.title : "Unknown Event"}
+          </h3>
+          <p className="text-sm text-gray-600">
+            {event ? `${event.date} • ${event.location}` : "Event details unavailable"}
+          </p>
+          <p className="text-xs text-green-600 font-medium">
+            ✓ Matched with {loadingUser ? "..." : getFirstName(otherUser?.name || "Unknown")}
+          </p>
+        </div>
+      </div>
+      
+      <div className="mt-4 p-3 bg-gray-50 rounded-lg">
+        <p className="text-sm text-gray-700">
+          You and {loadingUser ? "someone" : getFirstName(otherUser?.name || "Unknown")} are both interested in each other for this event!
+        </p>
+      </div>
+      
+      <div className="flex gap-2 mt-4">
+        <Button
+          className="flex-1 bg-gradient-to-r from-pink-500 to-purple-600 hover:from-pink-600 hover:to-purple-700 text-white"
+          onClick={() => {
+            router.push(`/user-home/chat?matchId=${match.id}`);
+          }}
+        >
+          💬 Start Chat
+        </Button>
+        <Button
+          variant="outline"
+          className="flex-1"
+          onClick={() => {
+            // TODO: View match details
+            alert("Match details coming soon!");
+          }}
+        >
+          📋 View Details
+        </Button>
+      </div>
+    </div>
+  );
+};
+
 export default function Dashboard() {
   const router = useRouter();
   const [myEvents, setMyEvents] = useState<any[]>([]);
@@ -404,54 +486,20 @@ export default function Dashboard() {
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
             {matches.map((match) => {
               // Find the event details for this match
-              const event = myEvents.find(e => String(e.id) === match.eventId);
+              const event = myEvents.find(e => String(e.id) === String(match.eventId));
+              
+              // Determine the other user's ID (not the current user)
+              const auth = getAuth();
+              const currentUser = auth.currentUser;
+              const otherUserId = currentUser?.uid === match.userA ? match.userB : match.userA;
               
               return (
-                <div key={match.id} className="border rounded-lg p-4 bg-white shadow">
-                  <div className="flex items-center gap-3 mb-3">
-                    <div className="w-12 h-12 bg-gradient-to-r from-pink-400 to-purple-500 rounded-full flex items-center justify-center">
-                      <span className="text-white font-bold text-lg">💕</span>
-                    </div>
-                    <div className="flex-1">
-                      <h3 className="font-semibold text-lg">
-                        {event ? event.title : `Event #${match.eventId}`}
-                      </h3>
-                      <p className="text-sm text-gray-600">
-                        {event ? `${event.date} • ${event.location}` : `Event ID: ${match.eventId}`}
-                      </p>
-                      <p className="text-xs text-green-600 font-medium">
-                        ✓ Mutual Interest Confirmed
-                      </p>
-                    </div>
-                  </div>
-                  
-                  <div className="mt-4 p-3 bg-gray-50 rounded-lg">
-                    <p className="text-sm text-gray-700">
-                      You and another person are both interested in each other for this event!
-                    </p>
-                  </div>
-                  
-                  <div className="flex gap-2 mt-4">
-                    <Button
-                      className="flex-1 bg-gradient-to-r from-pink-500 to-purple-600 hover:from-pink-600 hover:to-purple-700 text-white"
-                      onClick={() => {
-                        router.push(`/user-home/chat?matchId=${match.id}`);
-                      }}
-                    >
-                      💬 Start Chat
-                    </Button>
-                    <Button
-                      variant="outline"
-                      className="flex-1"
-                      onClick={() => {
-                        // TODO: View match details
-                        alert("Match details coming soon!");
-                      }}
-                    >
-                      📋 View Details
-                    </Button>
-                  </div>
-                </div>
+                <MatchCard 
+                  key={match.id} 
+                  match={match} 
+                  event={event} 
+                  otherUserId={otherUserId}
+                />
               );
             })}
           </div>

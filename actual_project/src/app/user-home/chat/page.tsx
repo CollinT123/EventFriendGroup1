@@ -208,7 +208,9 @@ export default function ChatPage() {
               </div>
               <div>
                 <h2 className="font-semibold text-lg">Match Chat</h2>
-                <p className="text-sm text-gray-600">Event ID: {match?.eventId}</p>
+                <p className="text-sm text-gray-600">
+          {match?.eventId ? "Event details" : "Event details unavailable"}
+        </p>
                 <p className="text-xs text-green-600 font-medium">✓ Mutual Interest Confirmed</p>
               </div>
             </div>
