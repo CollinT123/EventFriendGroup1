@@ -6,6 +6,7 @@ import { db } from "@/firebase/firebaseConfig";
 import { doc, getDoc, addDoc, collection, query, orderBy, onSnapshot, serverTimestamp } from "firebase/firestore";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import Link from "next/link";
 
 export default function ChatPage() {
@@ -18,6 +19,8 @@ export default function ChatPage() {
   const [messages, setMessages] = useState<any[]>([]);
   const [newMessage, setNewMessage] = useState('');
   const [sending, setSending] = useState(false);
+  const [otherUser, setOtherUser] = useState<any>(null);
+  const [loadingUser, setLoadingUser] = useState(true);
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -58,6 +61,25 @@ export default function ChatPage() {
         }
 
         setMatch({ id: matchId, ...matchData });
+        
+        // Determine the other user's ID and load their profile
+        const otherUserId = matchData.userA === currentUser.uid ? matchData.userB : matchData.userA;
+        
+        try {
+          const userRef = doc(db, "users", otherUserId);
+          const userSnap = await getDoc(userRef);
+          
+          if (userSnap.exists()) {
+            setOtherUser({ id: otherUserId, ...userSnap.data() });
+          } else {
+            setOtherUser({ id: otherUserId, name: "Unknown User" });
+          }
+        } catch (err) {
+          console.error("Error loading other user:", err);
+          setOtherUser({ id: otherUserId, name: "Unknown User" });
+        } finally {
+          setLoadingUser(false);
+        }
       } catch (err) {
         console.error("Error loading match:", err);
         setError("Failed to load match");
@@ -142,6 +164,11 @@ export default function ChatPage() {
     return message.senderId === currentUser?.uid;
   };
 
+  // Get first name from full name
+  const getFirstName = (fullName: string) => {
+    return fullName.split(' ')[0] || fullName;
+  };
+
   if (loading) {
     return (
       <div className="min-h-screen bg-gray-50 flex items-center justify-center">
@@ -184,14 +211,21 @@ export default function ChatPage() {
                 </Button>
               </Link>
               <div>
-                <h1 className="text-xl font-semibold">Chat</h1>
-                <p className="text-sm text-gray-600">Match #{match?.id?.slice(0, 8)}</p>
+                <h1 className="text-xl font-semibold">
+                  {loadingUser ? "Loading..." : (otherUser ? `Chat with ${getFirstName(otherUser.name)}` : "Chat")}
+                </h1>
+                <p className="text-sm text-gray-600">
+                  {loadingUser ? "Loading user details..." : (otherUser ? `Matched on ${match?.eventId ? "an event" : "an event"}` : "Match details")}
+                </p>
               </div>
             </div>
             <div className="flex items-center gap-2">
-              <div className="w-8 h-8 bg-gradient-to-r from-pink-400 to-purple-500 rounded-full flex items-center justify-center">
-                <span className="text-white text-sm">💬</span>
-              </div>
+              <Avatar className="w-8 h-8">
+                <AvatarImage src={otherUser?.profilePicture} alt={otherUser?.name || "User"} />
+                <AvatarFallback className="bg-gradient-to-r from-gray-400 to-gray-500 text-white text-xs">
+                  {otherUser?.name ? otherUser.name.charAt(0).toUpperCase() : "?"}
+                </AvatarFallback>
+              </Avatar>
             </div>
           </div>
         </div>
@@ -203,14 +237,19 @@ export default function ChatPage() {
           {/* Chat Header */}
           <div className="border-b p-4">
             <div className="flex items-center gap-3">
-              <div className="w-12 h-12 bg-gradient-to-r from-pink-400 to-purple-500 rounded-full flex items-center justify-center">
-                <span className="text-white font-bold text-lg">💕</span>
-              </div>
+              <Avatar className="w-12 h-12">
+                <AvatarImage src={otherUser?.profilePicture} alt={otherUser?.name || "User"} />
+                <AvatarFallback className="bg-gradient-to-r from-gray-400 to-gray-500 text-white">
+                  {otherUser?.name ? otherUser.name.charAt(0).toUpperCase() : "?"}
+                </AvatarFallback>
+              </Avatar>
               <div>
-                <h2 className="font-semibold text-lg">Match Chat</h2>
+                <h2 className="font-semibold text-lg">
+                  {loadingUser ? "Loading..." : (otherUser ? `Chat with ${getFirstName(otherUser.name)}` : "Match Chat")}
+                </h2>
                 <p className="text-sm text-gray-600">
-          {match?.eventId ? "Event details" : "Event details unavailable"}
-        </p>
+                  {match?.eventId ? "Event details" : "Event details unavailable"}
+                </p>
                 <p className="text-xs text-green-600 font-medium">✓ Mutual Interest Confirmed</p>
               </div>
             </div>
@@ -221,37 +260,21 @@ export default function ChatPage() {
             {messages.length === 0 ? (
               <div className="text-center py-8 text-gray-500">
                 <div className="w-16 h-16 bg-gray-100 rounded-full flex items-center justify-center mx-auto mb-4">
-                  <span className="text-2xl">💬</span>
+                  <span className="text-2xl">👤</span>
                 </div>
                 <p className="text-lg font-medium mb-2">Start the conversation!</p>
                 <p className="text-sm">Send your first message to begin chatting</p>
               </div>
             ) : (
-              <div className="space-y-4">
+              <div className="space-y-3">
                 {messages.map((message) => (
                   <div
                     key={message.id}
                     className={`flex ${isMyMessage(message) ? 'justify-end' : 'justify-start'}`}
                   >
-                    <div
-                      className={`max-w-xs lg:max-w-md px-4 py-2 rounded-lg ${
-                        isMyMessage(message)
-                          ? 'bg-gradient-to-r from-pink-500 to-purple-600 text-white'
-                          : 'bg-gray-100 text-gray-900'
-                      }`}
-                    >
-                      <div className="flex items-center gap-2 mb-1">
-                        <div className="w-6 h-6 rounded-full bg-gray-200 flex items-center justify-center">
-                          <span className="text-xs">
-                            {isMyMessage(message) ? '👤' : '💕'}
-                          </span>
-                        </div>
-                        <span className="text-xs opacity-75">
-                          {isMyMessage(message) ? 'You' : 'Match'}
-                        </span>
-                      </div>
-                      <p className="text-sm">{message.text}</p>
-                      <p className="text-xs opacity-75 mt-1">
+                    <div className="max-w-xs lg:max-w-md">
+                      <p className="text-sm text-gray-900 mb-1">{message.text}</p>
+                      <p className="text-xs text-gray-500">
                         {formatTime(message.timestamp)}
                       </p>
                     </div>

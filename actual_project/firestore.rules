@@ -1,0 +1,43 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // USERS: Allow reading any profile, but only writing own profile
+    match /users/{userId} {
+      allow read: if request.auth != null;
+      allow write: if request.auth != null && request.auth.uid == userId;
+    }
+
+    // EVENTS: Allow authenticated users to read and write events
+    match /events/{eventId} {
+      allow read, write: if request.auth != null;
+    }
+    
+    // INTERESTS: Allow users to create their own interests and read all interests
+    match /interests/{interestId} {
+      allow read: if request.auth != null;
+      allow create: if request.auth != null && request.auth.uid == request.resource.data.fromUser;
+      allow delete: if request.auth != null && request.auth.uid == resource.data.fromUser;
+    }
+    
+    // MATCHES: Allow all authenticated users to read/write/delete matches
+    match /matches/{matchId} {
+      allow read, write, create, delete: if request.auth != null;
+    }
+
+    // MESSAGES: Allow authenticated users to read/write messages
+    match /matches/{matchId}/messages/{messageId} {
+      allow read, write: if request.auth != null;
+    }
+
+    // Flat message structure support
+    match /messages/{messageId} {
+      allow read, write: if request.auth != null;
+    }
+
+    // DEFAULT: Deny all other access
+    match /{document=**} {
+      allow read, write: if false;
+    }
+  }
+} 

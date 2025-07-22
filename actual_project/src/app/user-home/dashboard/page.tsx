@@ -8,9 +8,10 @@ import { db } from "@/firebase/firebaseConfig";
 import { collection, getDocs, query, where, doc, getDoc, updateDoc, arrayUnion, arrayRemove, setDoc, addDoc } from "firebase/firestore";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { deleteDoc } from "firebase/firestore";
 
 // MatchCard component
-const MatchCard = ({ match, event, otherUserId }: { match: any; event: any; otherUserId: string }) => {
+const MatchCard = ({ match, event, otherUserId, onUnmatch }: { match: any; event: any; otherUserId: string; onUnmatch: (matchId: string, otherUserId: string, eventId: string) => void }) => {
   const [otherUser, setOtherUser] = useState<any>(null);
   const [loadingUser, setLoadingUser] = useState(true);
   const router = useRouter();
@@ -78,13 +79,14 @@ const MatchCard = ({ match, event, otherUserId }: { match: any; event: any; othe
         </Button>
         <Button
           variant="outline"
-          className="flex-1"
+          className="flex-1 border-red-300 text-red-600 hover:bg-red-50"
           onClick={() => {
-            // TODO: View match details
-            alert("Match details coming soon!");
+            if (confirm("Are you sure you want to unmatch with this person? This action cannot be undone.")) {
+              onUnmatch(match.id, otherUserId, match.eventId);
+            }
           }}
         >
-          📋 View Details
+          ❌ Unmatch
         </Button>
       </div>
     </div>
@@ -387,6 +389,61 @@ export default function Dashboard() {
     }
   };
 
+  const unmatchUser = async (matchId: string, otherUserId: string, eventId: string) => {
+    try {
+      const auth = getAuth();
+      const currentUser = auth.currentUser;
+      
+      if (!currentUser) {
+        alert("You must be signed in to unmatch.");
+        return;
+      }
+
+      console.log("Starting unmatch process...");
+      console.log("Match ID:", matchId);
+      console.log("Other User ID:", otherUserId);
+      console.log("Event ID:", eventId);
+
+      // Delete the match document first
+      console.log("Deleting match document...");
+      const matchRef = doc(db, "matches", matchId);
+      await deleteDoc(matchRef);
+      console.log("Match document deleted successfully");
+
+      // Remove the match from local state immediately
+      setMatches(prev => prev.filter(match => match.id !== matchId));
+      console.log("Match removed from local state");
+
+      // Try to delete interests separately (optional)
+      try {
+        console.log("Attempting to delete interests...");
+        const interestsQuery = query(
+          collection(db, "interests"),
+          where("fromUser", "in", [currentUser.uid, otherUserId]),
+          where("toUser", "in", [currentUser.uid, otherUserId]),
+          where("eventId", "==", eventId)
+        );
+        
+        const interestsSnap = await getDocs(interestsQuery);
+        console.log("Found", interestsSnap.docs.length, "interest documents");
+        
+        if (interestsSnap.docs.length > 0) {
+          const deletePromises = interestsSnap.docs.map(doc => deleteDoc(doc.ref));
+          await Promise.all(deletePromises);
+          console.log("Interest documents deleted successfully");
+        }
+      } catch (interestError) {
+        console.log("Interest deletion failed (this is optional):", interestError);
+        // Don't fail the whole unmatch if interest deletion fails
+      }
+
+      console.log("Unmatched successfully");
+    } catch (error) {
+      console.error("Error unmatching:", error);
+      alert("Failed to unmatch. Please try again.");
+    }
+  };
+
   const loadMatches = async () => {
     try {
       const auth = getAuth();
@@ -493,14 +550,15 @@ export default function Dashboard() {
               const currentUser = auth.currentUser;
               const otherUserId = currentUser?.uid === match.userA ? match.userB : match.userA;
               
-              return (
-                <MatchCard 
-                  key={match.id} 
-                  match={match} 
-                  event={event} 
-                  otherUserId={otherUserId}
-                />
-              );
+                              return (
+                  <MatchCard 
+                    key={match.id} 
+                    match={match} 
+                    event={event} 
+                    otherUserId={otherUserId}
+                    onUnmatch={unmatchUser}
+                  />
+                );
             })}
           </div>
         )}
