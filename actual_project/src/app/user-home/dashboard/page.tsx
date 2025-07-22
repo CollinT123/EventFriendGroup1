@@ -1,5 +1,4 @@
 "use client"
-import MiniProfileCard from "@/components/ui/MiniProfileCard";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { useEffect, useState } from "react";
