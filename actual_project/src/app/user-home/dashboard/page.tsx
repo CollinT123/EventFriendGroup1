@@ -435,8 +435,7 @@ export default function Dashboard() {
                     <Button
                       className="flex-1 bg-gradient-to-r from-pink-500 to-purple-600 hover:from-pink-600 hover:to-purple-700 text-white"
                       onClick={() => {
-                        // TODO: Implement chat functionality
-                        alert("Chat functionality coming soon!");
+                        router.push(`/user-home/chat?matchId=${match.id}`);
                       }}
                     >
                       💬 Start Chat
