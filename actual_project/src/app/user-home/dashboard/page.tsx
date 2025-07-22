@@ -5,7 +5,7 @@ import Link from "next/link";
 import { useEffect, useState } from "react";
 import { getAuth } from "firebase/auth";
 import { db } from "@/firebase/firebaseConfig";
-import { collection, getDocs, query, where, doc, getDoc, updateDoc, arrayUnion, arrayRemove } from "firebase/firestore";
+import { collection, getDocs, query, where, doc, getDoc, updateDoc, arrayUnion, arrayRemove, setDoc, addDoc } from "firebase/firestore";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 
@@ -20,6 +20,8 @@ export default function Dashboard() {
   const [myInterests, setMyInterests] = useState<string[]>([]);
   const [selectedProfile, setSelectedProfile] = useState<any>(null);
   const [isProfileModalOpen, setIsProfileModalOpen] = useState(false);
+  const [matches, setMatches] = useState<any[]>([]);
+  const [loadingMatches, setLoadingMatches] = useState(false);
 
   useEffect(() => {
     const fetchMyEvents = async () => {
@@ -47,6 +49,7 @@ export default function Dashboard() {
     
     fetchMyEvents();
     loadMyInterests();
+    loadMatches();
   }, []);
 
   const fetchPeopleInterested = async (eventId: string) => {
@@ -63,7 +66,6 @@ export default function Dashboard() {
         const eventData = eventSnap.data();
         const peopleIds = eventData.peopleInterested || [];
 
-        
         // Fetch user profiles for each person interested (excluding current user)
         const peopleProfiles = await Promise.all(
           peopleIds
@@ -85,13 +87,38 @@ export default function Dashboard() {
                 // If permission denied, we'll handle it gracefully
               }
               
+              // Check if current user is interested in this person
+              const myInterestQuery = query(
+                collection(db, "interests"),
+                where("fromUser", "==", currentUser?.uid),
+                where("toUser", "==", userId),
+                where("eventId", "==", eventId)
+              );
+              const myInterestSnap = await getDocs(myInterestQuery);
+              const iAmInterestedInThem = !myInterestSnap.empty;
+
+              // If current user has already expressed interest in this person, return null to filter out
+              if (iAmInterestedInThem) {
+                return null;
+              }
+
+              // Check if this person is interested in current user
+              const theirInterestQuery = query(
+                collection(db, "interests"),
+                where("fromUser", "==", userId),
+                where("toUser", "==", currentUser?.uid),
+                where("eventId", "==", eventId)
+              );
+              const theirInterestSnap = await getDocs(theirInterestQuery);
+              const isInterestedInMe = !theirInterestSnap.empty;
+              
               if (userData) {
                 return { 
                   id: userId, 
                   ...userData,
                   hasProfile: true,
-                  isInterestedInMe: userData.peopleInterestedInMe?.includes(currentUser?.uid) || false,
-                  iAmInterestedInThem: myInterests.includes(userId)
+                  isInterestedInMe: isInterestedInMe,
+                  iAmInterestedInThem: iAmInterestedInThem
                 };
               } else {
                 // If we can't access the profile due to permissions, show a generic message
@@ -99,8 +126,8 @@ export default function Dashboard() {
                   id: userId, 
                   name: `User ${userId.slice(0, 8)}...`, 
                   bio: "Profile information is not publicly available. This user may have privacy settings enabled.",
-                  isInterestedInMe: false,
-                  iAmInterestedInThem: myInterests.includes(userId),
+                  isInterestedInMe: isInterestedInMe,
+                  iAmInterestedInThem: iAmInterestedInThem,
                   hasProfile: false
                 };
               }
@@ -111,14 +138,16 @@ export default function Dashboard() {
                 name: `User ${userId.slice(0, 8)}...`, 
                 bio: "Error loading profile",
                 isInterestedInMe: false,
-                iAmInterestedInThem: myInterests.includes(userId),
+                iAmInterestedInThem: false,
                 hasProfile: false
               };
             }
           })
         );
         
-        setPeopleInterested(peopleProfiles);
+        // Filter out null values (users we've already expressed interest in)
+        const filteredProfiles = peopleProfiles.filter(profile => profile !== null);
+        setPeopleInterested(filteredProfiles);
       }
     } catch (err) {
       console.error("Error fetching people interested:", err);
@@ -126,7 +155,7 @@ export default function Dashboard() {
     setLoadingPeople(false);
   };
 
-  const handleExpressInterest = async (targetUserId: string, isInterested: boolean) => {
+  const handleExpressInterest = async (targetUserId: string, isInterested: boolean, eventId: string) => {
     try {
       const auth = getAuth();
       const currentUser = auth.currentUser;
@@ -136,16 +165,59 @@ export default function Dashboard() {
         return;
       }
 
-      // Update the target user's document
-      const targetUserRef = doc(db, "users", targetUserId);
       if (isInterested) {
-        await updateDoc(targetUserRef, {
-          peopleInterestedInMe: arrayUnion(currentUser.uid)
-        });
+        // Check if interest already exists
+        const existingInterestQuery = query(
+          collection(db, "interests"),
+          where("fromUser", "==", currentUser.uid),
+          where("toUser", "==", targetUserId),
+          where("eventId", "==", eventId)
+        );
+        
+        const existingInterestSnap = await getDocs(existingInterestQuery);
+        
+        if (!existingInterestSnap.empty) {
+          alert("You've already expressed interest in this person for this event!");
+          return;
+        }
+        
+        // Create interest document
+        const interestData = {
+          fromUser: currentUser.uid,
+          toUser: targetUserId,
+          eventId: eventId,
+          timestamp: new Date().toISOString()
+        };
+        
+        await addDoc(collection(db, "interests"), interestData);
+        
+        // Check for mutual interest and create match
+        const mutualInterestQuery = query(
+          collection(db, "interests"),
+          where("fromUser", "==", targetUserId),
+          where("toUser", "==", currentUser.uid),
+          where("eventId", "==", eventId)
+        );
+        
+        const mutualInterestSnap = await getDocs(mutualInterestQuery);
+        if (!mutualInterestSnap.empty) {
+          // Mutual interest detected! Create a match
+          await createMatch(currentUser.uid, targetUserId, eventId);
+          alert("🎉 It's a match! You both are interested in each other!");
+          
+          // Refresh matches list to show the new match
+          await loadMatches();
+        }
+        
+        // Refresh the people interested list to remove the person from the list
+        if (selectedEvent) {
+          await fetchPeopleInterested(String(selectedEvent.id));
+        }
       } else {
-        await updateDoc(targetUserRef, {
-          peopleInterestedInMe: arrayRemove(currentUser.uid)
-        });
+        // For now, we don't allow removing interest to prevent confusion
+        // Users can only express interest once per person per event
+        alert("Interest cannot be removed once expressed.");
+        return;
       }
 
       // Update local state
@@ -155,13 +227,9 @@ export default function Dashboard() {
           : prev.filter(id => id !== targetUserId)
       );
 
-      // Update the people interested list
+      // Remove the person from the people interested list since we've expressed interest
       setPeopleInterested(prev => 
-        prev.map(person => 
-          person.id === targetUserId 
-            ? { ...person, iAmInterestedInThem: isInterested }
-            : person
-        )
+        prev.filter(person => person.id !== targetUserId)
       );
 
     } catch (err) {
@@ -177,13 +245,16 @@ export default function Dashboard() {
       
       if (!currentUser) return;
 
-      const userRef = doc(db, "users", currentUser.uid);
-      const userSnap = await getDoc(userRef);
+      // Get all interests where current user is the fromUser
+      const interestsQuery = query(
+        collection(db, "interests"),
+        where("fromUser", "==", currentUser.uid)
+      );
       
-      if (userSnap.exists()) {
-        const userData = userSnap.data();
-        setMyInterests(userData.peopleInterestedInMe || []);
-      }
+      const interestsSnap = await getDocs(interestsQuery);
+      const interestUserIds = interestsSnap.docs.map(doc => doc.data().toUser);
+      
+      setMyInterests(interestUserIds);
     } catch (err) {
       console.error("Error loading my interests:", err);
     }
@@ -192,6 +263,84 @@ export default function Dashboard() {
   const handleViewProfile = (person: any) => {
     setSelectedProfile(person);
     setIsProfileModalOpen(true);
+  };
+
+  const createMatch = async (userA: string, userB: string, eventId: string) => {
+    try {
+      const auth = getAuth();
+      const currentUser = auth.currentUser;
+      
+      if (!currentUser) return;
+
+      // Create a unique match ID (ensure consistent ordering)
+      const sortedUsers = [userA, userB].sort();
+      const matchId = `${sortedUsers[0]}_${sortedUsers[1]}_${eventId}`;
+      
+      // Check if match already exists
+      const existingMatchRef = doc(db, "matches", matchId);
+      const existingMatchSnap = await getDoc(existingMatchRef);
+      
+      if (existingMatchSnap.exists()) {
+        console.log("Match already exists:", matchId);
+        return; // Don't create duplicate
+      }
+      
+      // Create the match document
+      const matchData = {
+        userA: userA,
+        userB: userB,
+        eventId: eventId,
+        status: "pending",
+        createdAt: new Date().toISOString(),
+        lastActivity: new Date().toISOString()
+      };
+
+      await setDoc(doc(db, "matches", matchId), matchData);
+      console.log("Match created:", matchId);
+      
+      // Refresh matches
+      loadMatches();
+    } catch (err) {
+      console.error("Error creating match:", err);
+    }
+  };
+
+  const loadMatches = async () => {
+    try {
+      const auth = getAuth();
+      const currentUser = auth.currentUser;
+      
+      if (!currentUser) return;
+
+      setLoadingMatches(true);
+      
+      // Get matches where current user is either userA or userB
+      const matchesQuery = query(
+        collection(db, "matches"),
+        where("userA", "==", currentUser.uid)
+      );
+      
+      const matchesQuery2 = query(
+        collection(db, "matches"),
+        where("userB", "==", currentUser.uid)
+      );
+
+      const [snapshot1, snapshot2] = await Promise.all([
+        getDocs(matchesQuery),
+        getDocs(matchesQuery2)
+      ]);
+
+      const allMatches = [
+        ...snapshot1.docs.map(doc => ({ id: doc.id, ...doc.data() })),
+        ...snapshot2.docs.map(doc => ({ id: doc.id, ...doc.data() }))
+      ];
+
+      setMatches(allMatches);
+    } catch (err) {
+      console.error("Error loading matches:", err);
+    } finally {
+      setLoadingMatches(false);
+    }
   };
 
   return (
@@ -230,7 +379,6 @@ export default function Dashboard() {
                   >
                     View People Interested ({event.peopleInterested?.length || 0})
                   </Button>
-
                 </div>
               </div>
             ))}
@@ -240,25 +388,77 @@ export default function Dashboard() {
 
       {/* Matches Section */}
       <section>
-        <h2 className="text-2xl font-semibold mb-4">My Matches</h2>
-        <div className="flex flex-wrap gap-4">
-          {[1, 2].map((match) => (
-            <div key={match} className="flex flex-col items-center">
-              <MiniProfileCard
-                name={`Match ${match}`}
-                photoUrl="/placeholder.svg"
-                interests={["Music", "Food"]}
-              />
-              <button className="mt-2 bg-green-500 text-white px-4 py-1 rounded">
-                Chat
-              </button>
-            </div>
-          ))}
+        <div className="flex items-center justify-between mb-4">
+          <h2 className="text-2xl font-semibold">My Matches</h2>
+          {matches.length > 0 && (
+            <span className="bg-gradient-to-r from-pink-500 to-purple-600 text-white px-3 py-1 rounded-full text-sm font-medium">
+              {matches.length} match{matches.length !== 1 ? 'es' : ''}
+            </span>
+          )}
         </div>
+        {loadingMatches ? (
+          <div>Loading your matches...</div>
+        ) : matches.length === 0 ? (
+          <div className="text-gray-500">No matches yet. Express interest in people to create matches!</div>
+        ) : (
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+            {matches.map((match) => {
+              // Find the event details for this match
+              const event = myEvents.find(e => String(e.id) === match.eventId);
+              
+              return (
+                <div key={match.id} className="border rounded-lg p-4 bg-white shadow">
+                  <div className="flex items-center gap-3 mb-3">
+                    <div className="w-12 h-12 bg-gradient-to-r from-pink-400 to-purple-500 rounded-full flex items-center justify-center">
+                      <span className="text-white font-bold text-lg">💕</span>
+                    </div>
+                    <div className="flex-1">
+                      <h3 className="font-semibold text-lg">
+                        {event ? event.title : `Event #${match.eventId}`}
+                      </h3>
+                      <p className="text-sm text-gray-600">
+                        {event ? `${event.date} • ${event.location}` : `Event ID: ${match.eventId}`}
+                      </p>
+                      <p className="text-xs text-green-600 font-medium">
+                        ✓ Mutual Interest Confirmed
+                      </p>
+                    </div>
+                  </div>
+                  
+                  <div className="mt-4 p-3 bg-gray-50 rounded-lg">
+                    <p className="text-sm text-gray-700">
+                      You and another person are both interested in each other for this event!
+                    </p>
+                  </div>
+                  
+                  <div className="flex gap-2 mt-4">
+                    <Button
+                      className="flex-1 bg-gradient-to-r from-pink-500 to-purple-600 hover:from-pink-600 hover:to-purple-700 text-white"
+                      onClick={() => {
+                        // TODO: Implement chat functionality
+                        alert("Chat functionality coming soon!");
+                      }}
+                    >
+                      💬 Start Chat
+                    </Button>
+                    <Button
+                      variant="outline"
+                      className="flex-1"
+                      onClick={() => {
+                        // TODO: View match details
+                        alert("Match details coming soon!");
+                      }}
+                    >
+                      📋 View Details
+                    </Button>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        )}
       </section>
 
-      {/* Active Conversations Section */}
-      
       {/* People Interested Modal */}
       <Dialog open={isPeopleModalOpen} onOpenChange={setIsPeopleModalOpen}>
         <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
@@ -267,8 +467,6 @@ export default function Dashboard() {
               People Interested in {selectedEvent?.title}
             </DialogTitle>
           </DialogHeader>
-          
-
 
           <div className="p-4">
             {loadingPeople ? (
@@ -297,64 +495,35 @@ export default function Dashboard() {
                         )}
                         {!person.profileImage && (
                           <div className="w-12 h-12 rounded-full bg-gray-100 flex items-center justify-center">
-                            <span className="text-gray-500">👤</span>
+                            <span className="text-gray-500 text-lg">👤</span>
                           </div>
                         )}
                         <div className="flex-1">
-                          <div className="flex items-center gap-2">
-                            <h3 className="font-semibold text-lg">{person.name}</h3>
-                            {person.hasProfile === false && (
-                              <span className="bg-yellow-100 text-yellow-800 px-2 py-1 rounded text-xs">
-                                Private Profile
-                              </span>
-                            )}
-                          </div>
-                          {person.age && (
-                            <p className="text-sm text-gray-600">Age: {person.age}</p>
-                          )}
-                          {person.location && (
-                            <p className="text-sm text-gray-600">Location: {person.location}</p>
-                          )}
-                          {person.bio && (
-                            <p className="text-sm text-gray-700 mt-2 line-clamp-2">{person.bio}</p>
-                          )}
+                          <h3 className="font-semibold">{person.name}</h3>
+                          <p className="text-sm text-gray-600">
+                            {person.age && `${person.age} years old`}
+                            {person.location && ` • ${person.location}`}
+                          </p>
                         </div>
                       </div>
                       
-                      {/* Interest Status Indicators */}
-                      <div className="mt-3 flex gap-2">
-                        {person.isInterestedInMe && (
-                          <span className="bg-green-100 text-green-800 px-2 py-1 rounded text-xs">
-                            ✓ Interested in you
-                          </span>
-                        )}
-                        {person.iAmInterestedInThem && (
-                          <span className="bg-blue-100 text-blue-800 px-2 py-1 rounded text-xs">
-                            ✓ You're interested
-                          </span>
-                        )}
-                      </div>
-                      
-                      {person.eventPreferences && person.eventPreferences.length > 0 && (
-                        <div className="flex flex-wrap gap-1 mt-3">
-                          {person.eventPreferences.map((pref: string, i: number) => (
-                            <span key={i} className="bg-blue-500 text-white px-2 py-1 rounded text-xs">
-                              {pref}
-                            </span>
-                          ))}
-                        </div>
+                      {person.bio && (
+                        <p className="text-sm text-gray-700 mt-2 line-clamp-2">
+                          {person.bio}
+                        </p>
                       )}
                       
-                      <div className="mt-3 flex gap-2">
+                      <div className="flex gap-2 mt-3">
                         <Button
                           className={`flex-1 ${
                             person.iAmInterestedInThem 
-                              ? 'bg-red-500 hover:bg-red-600' 
+                              ? 'bg-gray-500 cursor-not-allowed' 
                               : 'bg-green-500 hover:bg-green-600'
                           } text-white`}
-                          onClick={() => handleExpressInterest(person.id, !person.iAmInterestedInThem)}
+                          onClick={() => handleExpressInterest(person.id, !person.iAmInterestedInThem, selectedEvent?.id || '')}
+                          disabled={person.iAmInterestedInThem}
                         >
-                          {person.iAmInterestedInThem ? 'Remove Interest' : 'Show Interest'}
+                          {person.iAmInterestedInThem ? 'Already Interested' : 'Show Interest'}
                         </Button>
                         <Button
                           variant="outline"
@@ -370,33 +539,33 @@ export default function Dashboard() {
               </div>
             )}
           </div>
-                  </DialogContent>
-        </Dialog>
+        </DialogContent>
+      </Dialog>
 
-        {/* Profile Modal */}
-        <Dialog open={isProfileModalOpen} onOpenChange={setIsProfileModalOpen}>
-          <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
-            <DialogHeader>
-              <DialogTitle className="text-xl font-bold">
-                {selectedProfile?.name}'s Profile
-              </DialogTitle>
-            </DialogHeader>
-
-            {selectedProfile && (
-              <div className="p-6">
-                <div className="flex flex-col items-center mb-6">
-                  {selectedProfile.profileImage && (
-                    <img
-                      src={selectedProfile.profileImage}
-                      alt={selectedProfile.name}
-                      className="w-32 h-32 rounded-full object-cover border-4 border-gray-200 mb-4"
-                    />
-                  )}
-                  {!selectedProfile.profileImage && (
-                    <div className="w-32 h-32 rounded-full border-4 border-gray-200 mb-4 bg-gray-100 flex items-center justify-center">
-                      <span className="text-gray-500 text-2xl">👤</span>
-                    </div>
-                  )}
+      {/* Profile Modal */}
+      <Dialog open={isProfileModalOpen} onOpenChange={setIsProfileModalOpen}>
+        <DialogContent className="max-w-2xl">
+          <DialogHeader>
+            <DialogTitle className="text-xl font-bold">Profile Details</DialogTitle>
+          </DialogHeader>
+          
+          {selectedProfile && (
+            <div className="space-y-6">
+              {/* Profile Header */}
+              <div className="flex items-center gap-4">
+                {selectedProfile.profileImage && (
+                  <img
+                    src={selectedProfile.profileImage}
+                    alt={selectedProfile.name}
+                    className="w-20 h-20 rounded-full object-cover"
+                  />
+                )}
+                {!selectedProfile.profileImage && (
+                  <div className="w-20 h-20 rounded-full bg-gray-100 flex items-center justify-center">
+                    <span className="text-gray-500 text-2xl">👤</span>
+                  </div>
+                )}
+                <div>
                   <h2 className="text-2xl font-bold text-gray-900 mb-2">
                     {selectedProfile.name}
                   </h2>
@@ -418,78 +587,82 @@ export default function Dashboard() {
                     )}
                   </div>
                 </div>
+              </div>
 
-                {/* Bio Section */}
-                {selectedProfile.bio && (
-                  <div className="mb-6">
-                    <h3 className="text-lg font-semibold text-gray-900 mb-2">About</h3>
-                    <p className="text-gray-700 leading-relaxed whitespace-pre-line">
-                      {selectedProfile.bio}
-                    </p>
-                  </div>
-                )}
-
-                {/* Event Preferences */}
-                {selectedProfile.eventPreferences && selectedProfile.eventPreferences.length > 0 && (
-                  <div className="mb-6">
-                    <h3 className="text-lg font-semibold text-gray-900 mb-3">Event Preferences</h3>
-                    <div className="flex flex-wrap gap-2">
-                      {selectedProfile.eventPreferences.map((pref: string, i: number) => (
-                        <span
-                          key={i}
-                          className="bg-blue-500 text-white px-3 py-1 rounded-full text-sm font-medium"
-                        >
-                          {pref}
-                        </span>
-                      ))}
-                    </div>
-                  </div>
-                )}
-
-                {/* Interest Status */}
+              {/* Bio Section */}
+              {selectedProfile.bio && (
                 <div className="mb-6">
-                  <h3 className="text-lg font-semibold text-gray-900 mb-3">Connection Status</h3>
-                  <div className="space-y-2">
-                    {selectedProfile.isInterestedInMe && (
-                      <div className="flex items-center gap-2 text-green-600">
-                        <span className="text-lg">✓</span>
-                        <span>They are interested in you</span>
-                      </div>
-                    )}
-                    {selectedProfile.iAmInterestedInThem && (
-                      <div className="flex items-center gap-2 text-blue-600">
-                        <span className="text-lg">✓</span>
-                        <span>You are interested in them</span>
-                      </div>
-                    )}
-                    {!selectedProfile.isInterestedInMe && !selectedProfile.iAmInterestedInThem && (
-                      <div className="text-gray-500">
-                        No mutual interest yet
-                      </div>
-                    )}
+                  <h3 className="text-lg font-semibold text-gray-900 mb-2">About</h3>
+                  <p className="text-gray-700 leading-relaxed whitespace-pre-line">
+                    {selectedProfile.bio}
+                  </p>
+                </div>
+              )}
+
+              {/* Event Preferences */}
+              {selectedProfile.eventPreferences && selectedProfile.eventPreferences.length > 0 && (
+                <div className="mb-6">
+                  <h3 className="text-lg font-semibold text-gray-900 mb-3">Event Preferences</h3>
+                  <div className="flex flex-wrap gap-2">
+                    {selectedProfile.eventPreferences.map((pref: string, i: number) => (
+                      <span
+                        key={i}
+                        className="bg-blue-500 text-white px-3 py-1 rounded-full text-sm font-medium"
+                      >
+                        {pref}
+                      </span>
+                    ))}
                   </div>
                 </div>
+              )}
 
-                {/* Action Buttons */}
-                <div className="flex justify-center pt-4 border-t border-gray-200">
-                  <Button
-                    className={`${
-                      selectedProfile.iAmInterestedInThem 
-                        ? 'bg-red-500 hover:bg-red-600' 
-                        : 'bg-green-500 hover:bg-green-600'
-                    } text-white px-8 py-2`}
-                    onClick={() => {
-                      handleExpressInterest(selectedProfile.id, !selectedProfile.iAmInterestedInThem);
-                      setIsProfileModalOpen(false);
-                    }}
-                  >
-                    {selectedProfile.iAmInterestedInThem ? 'Remove Interest' : 'Show Interest'}
-                  </Button>
+              {/* Interest Status */}
+              <div className="mb-6">
+                <h3 className="text-lg font-semibold text-gray-900 mb-3">Connection Status</h3>
+                <div className="space-y-2">
+                  {selectedProfile.isInterestedInMe && (
+                    <div className="flex items-center gap-2 text-green-600">
+                      <span className="text-lg">✓</span>
+                      <span>They are interested in you</span>
+                    </div>
+                  )}
+                  {selectedProfile.iAmInterestedInThem && (
+                    <div className="flex items-center gap-2 text-blue-600">
+                      <span className="text-lg">✓</span>
+                      <span>You are interested in them</span>
+                    </div>
+                  )}
+                  {!selectedProfile.isInterestedInMe && !selectedProfile.iAmInterestedInThem && (
+                    <div className="text-gray-500">
+                      No mutual interest yet
+                    </div>
+                  )}
                 </div>
               </div>
-            )}
-          </DialogContent>
-        </Dialog>
-      </div>
-    );
-  }
+
+              {/* Action Buttons */}
+              <div className="flex justify-center pt-4 border-t border-gray-200">
+                <Button
+                  className={`${
+                    selectedProfile.iAmInterestedInThem 
+                      ? 'bg-gray-500 cursor-not-allowed' 
+                      : 'bg-green-500 hover:bg-green-600'
+                  } text-white px-8 py-2`}
+                  onClick={() => {
+                    if (!selectedProfile.iAmInterestedInThem) {
+                      handleExpressInterest(selectedProfile.id, true, selectedEvent?.id);
+                    }
+                    setIsProfileModalOpen(false);
+                  }}
+                  disabled={selectedProfile.iAmInterestedInThem}
+                >
+                  {selectedProfile.iAmInterestedInThem ? 'Already Interested' : 'Show Interest'}
+                </Button>
+              </div>
+            </div>
+          )}
+        </DialogContent>
+      </Dialog>
+    </div>
+  );
+}
