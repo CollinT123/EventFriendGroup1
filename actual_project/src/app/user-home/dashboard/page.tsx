@@ -414,26 +414,50 @@ export default function Dashboard() {
       setMatches(prev => prev.filter(match => match.id !== matchId));
       console.log("Match removed from local state");
 
-      // Try to delete interests separately (optional)
+      // Delete interests from both users for this event
       try {
-        console.log("Attempting to delete interests...");
-        const interestsQuery = query(
-          collection(db, "interests"),
-          where("fromUser", "in", [currentUser.uid, otherUserId]),
-          where("toUser", "in", [currentUser.uid, otherUserId]),
-          where("eventId", "==", eventId)
-        );
+        console.log("Deleting interests from both users...");
+        console.log("Event ID type:", typeof eventId, "Value:", eventId);
+        console.log("Current User ID:", currentUser.uid);
+        console.log("Other User ID:", otherUserId);
         
-        const interestsSnap = await getDocs(interestsQuery);
-        console.log("Found", interestsSnap.docs.length, "interest documents");
+        // First, let's just try to get all interests to see if the query works
+        console.log("Attempting to query interests collection...");
+        const interestsQuery = query(collection(db, "interests"));
         
-        if (interestsSnap.docs.length > 0) {
-          const deletePromises = interestsSnap.docs.map(doc => deleteDoc(doc.ref));
-          await Promise.all(deletePromises);
-          console.log("Interest documents deleted successfully");
+        try {
+          const interestsSnap = await getDocs(interestsQuery);
+          console.log("Successfully queried interests collection. Found", interestsSnap.docs.length, "total documents");
+          
+          // Now filter for our specific interests
+          const relevantInterests = interestsSnap.docs.filter(doc => {
+            const data = doc.data();
+            console.log("Interest document:", data);
+            const isBetweenUsers = (
+              (data.fromUser === currentUser.uid && data.toUser === otherUserId) ||
+              (data.fromUser === otherUserId && data.toUser === currentUser.uid)
+            );
+            const isSameEvent = data.eventId === eventId;
+            console.log("Is between users:", isBetweenUsers, "Is same event:", isSameEvent);
+            return isBetweenUsers && isSameEvent;
+          });
+          
+          console.log("Found", relevantInterests.length, "relevant interest documents to delete");
+          
+          if (relevantInterests.length > 0) {
+            const deletePromises = relevantInterests.map(doc => deleteDoc(doc.ref));
+            await Promise.all(deletePromises);
+            console.log("All relevant interest documents deleted successfully");
+          } else {
+            console.log("No relevant interest documents found to delete");
+          }
+        } catch (queryError: any) {
+          console.log("Error querying interests collection:", queryError);
+          console.log("Query error details:", queryError.message, queryError.code);
         }
       } catch (interestError) {
         console.log("Interest deletion failed (this is optional):", interestError);
+        console.log("Error details:", interestError);
         // Don't fail the whole unmatch if interest deletion fails
       }
 

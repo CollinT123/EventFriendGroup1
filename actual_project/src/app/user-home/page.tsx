@@ -272,7 +272,7 @@ const EventDiscoveryPage = () => {
     "Shopping",
     "Community",
   ];
-  const sidebarItems = ["Dashboard", "Chat", "Profile"];
+  const sidebarItems = ["Dashboard", "Profile"];
 
   // Fetch profile when Profile tab is clicked
   const handleProfileClick = async () => {
