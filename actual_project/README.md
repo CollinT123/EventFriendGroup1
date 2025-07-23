@@ -210,8 +210,6 @@ actual_project/
 - **Responsive Design** - Mobile-first approach
 - **Modern Components** - Shadcn/ui component library
 - **Smooth Animations** - Enhanced user experience
-- **Accessibility** - WCAG compliant components
-- **Dark/Light Mode Ready** - Theme support infrastructure
 
 ## 📝 Environment Variables
 
