@@ -106,30 +106,30 @@ export default function Dashboard() {
   const [matches, setMatches] = useState<any[]>([]);
   const [loadingMatches, setLoadingMatches] = useState(false);
 
-  useEffect(() => {
-    const fetchMyEvents = async () => {
-      setLoading(true);
-      const auth = getAuth();
-      const user = auth.currentUser;
-      if (!user) {
-        setMyEvents([]);
-        setLoading(false);
-        return;
-      }
-      try {
-        const q = query(
-          collection(db, "events"),
-          where("peopleInterested", "array-contains", user.uid)
-        );
-        const querySnapshot = await getDocs(q);
-        const events = querySnapshot.docs.map((doc) => ({ id: doc.id, ...doc.data() }));
-        setMyEvents(events);
-      } catch (err) {
-        setMyEvents([]);
-      }
+  const fetchMyEvents = async () => {
+    setLoading(true);
+    const auth = getAuth();
+    const user = auth.currentUser;
+    if (!user) {
+      setMyEvents([]);
       setLoading(false);
-    };
-    
+      return;
+    }
+    try {
+      const q = query(
+        collection(db, "events"),
+        where("peopleInterested", "array-contains", user.uid)
+      );
+      const querySnapshot = await getDocs(q);
+      const events = querySnapshot.docs.map((doc) => ({ id: doc.id, ...doc.data() }));
+      setMyEvents(events);
+    } catch (err) {
+      setMyEvents([]);
+    }
+    setLoading(false);
+  };
+
+  useEffect(() => {
     fetchMyEvents();
     loadMyInterests();
     loadMatches();
@@ -236,6 +236,81 @@ export default function Dashboard() {
       console.error("Error fetching people interested:", err);
     }
     setLoadingPeople(false);
+  };
+
+  const handleRemoveEventInterest = async (eventId: string) => {
+    try {
+      const auth = getAuth();
+      const currentUser = auth.currentUser;
+      
+      if (!currentUser) {
+        alert("You must be signed in to remove event interest.");
+        return;
+      }
+
+      console.log("Removing interest for event:", eventId, "User:", currentUser.uid);
+
+      if (confirm("Are you sure you want to remove your interest in this event?")) {
+        // Remove user from event's peopleInterested array
+        const eventRef = doc(db, "events", String(eventId));
+        const eventSnap = await getDoc(eventRef);
+        
+        if (eventSnap.exists()) {
+          const eventData = eventSnap.data();
+          const currentPeopleInterested = eventData.peopleInterested || [];
+          
+          console.log("Current people interested:", currentPeopleInterested);
+          
+          // Remove the current user from the array
+          const updatedPeopleInterested = currentPeopleInterested.filter(
+            (userId: string) => userId !== currentUser.uid
+          );
+          
+          console.log("Updated people interested:", updatedPeopleInterested);
+          
+          // Update the event document
+          await updateDoc(eventRef, {
+            peopleInterested: updatedPeopleInterested
+          });
+          
+          // Remove all matches for this event involving the current user
+          const matchesQuery1 = query(
+            collection(db, "matches"),
+            where("eventId", "==", eventId),
+            where("userA", "==", currentUser.uid)
+          );
+          const matchesSnap1 = await getDocs(matchesQuery1);
+          const deleteMatchPromises1 = matchesSnap1.docs.map(doc => deleteDoc(doc.ref));
+          await Promise.all(deleteMatchPromises1);
+          
+          // Also check for matches where userB is the current user
+          const matchesQuery2 = query(
+            collection(db, "matches"),
+            where("eventId", "==", eventId),
+            where("userB", "==", currentUser.uid)
+          );
+          const matchesSnap2 = await getDocs(matchesQuery2);
+          const deleteMatchPromises2 = matchesSnap2.docs.map(doc => deleteDoc(doc.ref));
+          await Promise.all(deleteMatchPromises2);
+          
+          console.log(`Removed ${matchesSnap1.docs.length + matchesSnap2.docs.length} matches for this event`);
+          
+          // Refresh the events list and matches
+          await fetchMyEvents();
+          await loadMatches();
+          
+          alert("Event interest removed successfully! All matches for this event have also been removed.");
+        } else {
+          console.error("Event not found:", eventId);
+          alert("Event not found. Please try again.");
+        }
+      }
+    } catch (err) {
+      console.error("Error removing event interest:", err);
+      console.error("Event ID:", eventId);
+      console.error("Error details:", err);
+      alert("Failed to remove event interest. Please try again.");
+    }
   };
 
   const handleExpressInterest = async (targetUserId: string, isInterested: boolean, eventId: string) => {
@@ -530,7 +605,7 @@ export default function Dashboard() {
                 <h3 className="font-semibold text-lg">{event.title}</h3>
                 <p className="text-sm text-gray-600">{event.date}</p>
                 <p className="text-sm text-gray-600">{event.location}</p>
-                <div className="mt-3">
+                <div className="mt-3 space-y-2">
                   <Button
                     onClick={() => {
                       setSelectedEvent(event);
@@ -540,6 +615,17 @@ export default function Dashboard() {
                     className="w-full bg-blue-500 hover:bg-blue-600 text-white"
                   >
                     View People Interested ({event.peopleInterested?.length || 0})
+                  </Button>
+                  <Button
+                    onClick={() => {
+                      console.log("Event object:", event);
+                      console.log("Event ID:", event.id, "Type:", typeof event.id);
+                      handleRemoveEventInterest(event.id);
+                    }}
+                    variant="outline"
+                    className="w-full border-red-500 text-red-600 hover:bg-red-50 hover:border-red-600"
+                  >
+                    ❌ Remove Event Interest
                   </Button>
                 </div>
               </div>
