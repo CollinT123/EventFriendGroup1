@@ -1,15 +1,19 @@
 // Add all hardcoded events to Firestore
 import { initializeApp } from 'firebase/app';
 import { getFirestore, collection, setDoc, doc } from 'firebase/firestore';
+import dotenv from 'dotenv';
+
+// Load environment variables
+dotenv.config();
 
 const firebaseConfig = {
-    apiKey: "AIzaSyDC94zn7QamC6xJfCryC8OEUYRnFvBZHH8",
-    authDomain: "eventfriend-2e489.firebaseapp.com",
-    projectId: "eventfriend-2e489",
-    storageBucket: "eventfriend-2e489.appspot.com",
-    messagingSenderId: "53277412088",
-    appId: "1:53277412088:web:4fbe8a96bf05ad295c890d",
-    measurementId: "G-2B28Q3CZCW"
+    apiKey: process.env.NEXT_PUBLIC_FIREBASE_API_KEY,
+    authDomain: process.env.NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN,
+    projectId: process.env.NEXT_PUBLIC_FIREBASE_PROJECT_ID,
+    storageBucket: process.env.NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET,
+    messagingSenderId: process.env.NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID,
+    appId: process.env.NEXT_PUBLIC_FIREBASE_APP_ID,
+    measurementId: process.env.NEXT_PUBLIC_FIREBASE_MEASUREMENT_ID
 };
 
 const app = initializeApp(firebaseConfig);

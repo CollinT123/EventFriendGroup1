@@ -117,8 +117,8 @@ export default function Page() {
         const { signature, expire, token } = await authRes.json();
         // 2. Upload to ImageKit
         const ik = new ImageKit({
-          publicKey: "public_+ANrQ6VCgQdV8HcsnyVZJASccUQ=",
-          urlEndpoint: "https://ik.imagekit.io/kzg8aohm0",
+          publicKey: process.env.NEXT_PUBLIC_IMAGEKIT_PUBLIC_KEY!,
+          urlEndpoint: process.env.NEXT_PUBLIC_IMAGEKIT_URL_ENDPOINT!,
         });
         const uploadRes = await ik.upload({
           file: profileImageFile,

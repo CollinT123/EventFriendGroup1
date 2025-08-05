@@ -120,7 +120,7 @@ actual_project/
 - ImageKit account (for image uploads)
 
 ### Installation
-   #### Note for professor - These steps are for when we make our repo public, for grading purposes you can skip steps 3-5. Api keys are hard coded and events are already added. .env file will be added after grading. 
+
 1. **Clone the repository**
 
    ```bash
@@ -210,6 +210,8 @@ actual_project/
 - **Responsive Design** - Mobile-first approach
 - **Modern Components** - Shadcn/ui component library
 - **Smooth Animations** - Enhanced user experience
+- **Accessibility** - WCAG compliant components
+- **Dark/Light Mode Ready** - Theme support infrastructure
 
 ## 📝 Environment Variables
 
