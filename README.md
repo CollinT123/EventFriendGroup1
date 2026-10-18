@@ -6,7 +6,7 @@ A modern social networking application that helps users discover events and conn
 
 ### **Authentication & User Management**
 
-- **User Registration & Login** - Secure authentication with Firebase Auth
+- **User Registration & Login** - Secure authentication with Firebase Authentication
 - **Password Reset** - Forgot password functionality
 - **Profile Creation** - Customizable user profiles with image upload
 - **Profile Management** - Edit personal information and preferences
